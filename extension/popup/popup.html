@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EigenVault</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Lock Screen -->
+    <div id="lock-screen" class="screen">
+      <div class="logo">
+        <div class="logo-icon">🔐</div>
+        <h1>EigenVault</h1>
+      </div>
+
+      <div id="unlock-form">
+        <p class="subtitle">Unlock your vault</p>
+
+        <div class="input-group">
+          <input
+            type="password"
+            id="master-password"
+            placeholder="Master Password"
+            autocomplete="off"
+          />
+          <button id="toggle-password" class="icon-btn" title="Show/Hide">
+            <span class="eye-icon">👁</span>
+          </button>
+        </div>
+
+        <button id="unlock-btn" class="primary-btn">
+          Unlock
+        </button>
+
+        <div id="biometric-section" class="hidden">
+          <div class="divider">
+            <span>or</span>
+          </div>
+          <button id="biometric-btn" class="secondary-btn">
+            <span class="bio-icon">👆</span>
+            Use Biometric
+          </button>
+        </div>
+
+        <p id="unlock-error" class="error-message hidden"></p>
+      </div>
+
+      <div id="setup-form" class="hidden">
+        <p class="subtitle">Create your master password</p>
+        <p class="hint">This password encrypts all your data. Make it strong!</p>
+
+        <div class="input-group">
+          <input
+            type="password"
+            id="setup-password"
+            placeholder="Master Password"
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="input-group">
+          <input
+            type="password"
+            id="setup-password-confirm"
+            placeholder="Confirm Password"
+            autocomplete="off"
+          />
+        </div>
+
+        <div id="password-strength" class="strength-meter">
+          <div class="strength-bar"></div>
+          <span class="strength-text"></span>
+        </div>
+
+        <button id="setup-btn" class="primary-btn" disabled>
+          Create Vault
+        </button>
+
+        <p id="setup-error" class="error-message hidden"></p>
+      </div>
+    </div>
+
+    <!-- Main Screen -->
+    <div id="main-screen" class="screen hidden">
+      <header class="header">
+        <div class="logo-small">🔐 EigenVault</div>
+        <button id="lock-btn" class="icon-btn" title="Lock Vault">
+          🔒
+        </button>
+      </header>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions">
+        <button id="generate-btn" class="action-btn">
+          <span class="action-icon">✨</span>
+          Generate
+        </button>
+        <button id="add-btn" class="action-btn">
+          <span class="action-icon">➕</span>
+          Add New
+        </button>
+        <button id="dashboard-btn" class="action-btn">
+          <span class="action-icon">📊</span>
+          Dashboard
+        </button>
+      </div>
+
+      <!-- Search -->
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          id="search-input"
+          placeholder="Search passwords..."
+        />
+      </div>
+
+      <!-- Matching Credentials -->
+      <div id="matching-section" class="hidden">
+        <div class="section-header">
+          <span>📍 Credentials for this site</span>
+        </div>
+        <div id="matching-list" class="credential-list"></div>
+      </div>
+
+      <!-- Recent Entries -->
+      <div class="section-header">
+        <span>📋 Recent</span>
+        <button id="view-all-btn" class="text-btn">View All</button>
+      </div>
+      <div id="recent-list" class="credential-list"></div>
+
+      <!-- Generated Password Display -->
+      <div id="generated-section" class="hidden">
+        <div class="generated-box">
+          <div class="generated-header">
+            <span>Generated Password</span>
+            <button id="close-generated" class="icon-btn">✕</button>
+          </div>
+          <div class="password-display">
+            <code id="generated-password"></code>
+            <button id="copy-generated" class="icon-btn" title="Copy">📋</button>
+          </div>
+          <div class="strength-indicator">
+            <span class="strength-label">Strength:</span>
+            <span id="strength-value" class="strength-value">Strong</span>
+          </div>
+          <div class="generated-actions">
+            <button id="regenerate-btn" class="secondary-btn">
+              🔄 Regenerate
+            </button>
+            <button id="save-generated-btn" class="primary-btn">
+              💾 Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="add-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modal-title">Add Password</h2>
+          <button id="close-modal" class="icon-btn">✕</button>
+        </div>
+
+        <form id="add-form">
+          <div class="form-group">
+            <label for="entry-url">Website URL</label>
+            <input type="url" id="entry-url" required placeholder="https://example.com" />
+          </div>
+
+          <div class="form-group">
+            <label for="entry-username">Username</label>
+            <input type="text" id="entry-username" required placeholder="your@email.com" />
+          </div>
+
+          <div class="form-group">
+            <label for="entry-password">Password</label>
+            <div class="password-input-group">
+              <input type="password" id="entry-password" required />
+              <button type="button" id="generate-inline" class="icon-btn">✨</button>
+              <button type="button" id="toggle-entry-password" class="icon-btn">👁</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="entry-note">Note (optional)</label>
+            <textarea id="entry-note" rows="2" placeholder="Work account, personal, etc."></textarea>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" id="cancel-btn" class="secondary-btn">Cancel</button>
+            <button type="submit" class="primary-btn">Save Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>
