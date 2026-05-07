@@ -1,0 +1,4 @@
+[console_scripts]
+eigen = eigen_vault:main
+eigen-vault = eigen_vault:main
+ev = eigen_vault:main

@@ -2,7 +2,7 @@
  * Popup UI Controller for EigenVault
  */
 
-import { generatePassword, isPasswordStrong, getPasswordStrengthScore } from '../core/password-gen';
+import { generatePassword, isPasswordStrong, getPasswordStrengthScore } from '../src/core/password-gen';
 
 // DOM Elements
 const lockScreen = document.getElementById('lock-screen')!;
@@ -284,7 +284,7 @@ function updateStrengthMeter() {
   const labels = ['', 'Very Weak', 'Weak', 'Fair', 'Strong', 'Very Strong'];
   const colors = ['', 'var(--danger)', 'var(--warning)', '#84cc16', 'var(--success)', 'var(--primary)'];
 
-  const strengthText = strengthMeter.querySelector('.strength-text')!;
+  const strengthText = strengthMeter.querySelector('.strength-text')! as HTMLElement;
   strengthText.textContent = labels[strength.score];
   strengthText.style.color = colors[strength.score];
 

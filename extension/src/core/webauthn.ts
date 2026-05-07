@@ -49,7 +49,7 @@ export async function registerBiometricCredential(
         name: 'eigenvault-user',
         displayName: 'EigenVault User',
       },
-      challenge,
+      challenge: challenge.buffer as ArrayBuffer,
       pubKeyCredParams: [
         { type: 'public-key', alg: -7 },  // ES256
         { type: 'public-key', alg: -257 }, // RS256
@@ -92,7 +92,7 @@ export async function authenticateWithBiometric(
     const challenge = getRandomBytes(32);
 
     const getOptions: PublicKeyCredentialRequestOptions = {
-      challenge,
+      challenge: challenge.buffer as ArrayBuffer,
       allowCredentials: [
         {
           type: 'public-key',
@@ -127,7 +127,7 @@ export async function storeRecoveryKey(
     const challenge = getRandomBytes(32);
 
     const getOptions: PublicKeyCredentialRequestOptions = {
-      challenge,
+      challenge: challenge.buffer as ArrayBuffer,
       allowCredentials: [
         {
           type: 'public-key',

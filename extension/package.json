@@ -1,0 +1,20 @@
+{
+  "name": "eigenvault-extension",
+  "version": "1.0.0",
+  "description": "EigenVault Password Manager Browser Extension",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && node build.js",
+    "build:firefox": "tsc && node build.js --firefox",
+    "watch": "tsc --watch",
+    "zip": "node build.js --zip",
+    "zip:firefox": "node build.js --zip --firefox"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.260",
+    "typescript": "^5.4.0"
+  },
+  "keywords": ["password", "manager", "security", "browser-extension"],
+  "author": "Nihal Sheikh",
+  "license": "MIT"
+}

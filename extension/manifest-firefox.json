@@ -1,5 +1,5 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "EigenVault Password Manager",
   "version": "1.0.0",
   "description": "Secure password generator and manager with biometric unlock and smart auto-fill",
@@ -8,7 +8,7 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "browser_action": {
+  "action": {
     "default_popup": "popup/popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
@@ -19,7 +19,7 @@
   },
   "background": {
     "scripts": ["background/service-worker.js"],
-    "persistent": false
+    "type": "module"
   },
   "permissions": [
     "storage",
@@ -27,8 +27,11 @@
     "contextMenus",
     "clipboardWrite",
     "unlimitedStorage",
-    "webNavigation",
-    "<all_urls>"
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
   ],
   "content_scripts": [
     {
@@ -39,10 +42,13 @@
     }
   ],
   "web_accessible_resources": [
-    "styles/*"
+    {
+      "resources": ["styles/*"],
+      "matches": ["*://*/*"]
+    }
   ],
   "commands": {
-    "_execute_browser_action": {
+    "_execute_action": {
       "suggested_key": {
         "default": "Ctrl+Shift+L",
         "mac": "Command+Shift+L"
@@ -63,7 +69,6 @@
       "description": "Generate new password"
     }
   },
-  "content_security_policy": "script-src 'self'; object-src 'self'",
   "browser_specific_settings": {
     "gecko": {
       "id": "eigenvault@nihal.dev",
