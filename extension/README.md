@@ -1,6 +1,10 @@
 # 🌐 EigenVault Browser Extension
 
 <p align="center">
+  <img src="../public/github-header-banner.png" alt="EigenVault Banner" width="600">
+</p>
+
+<p align="center">
   <strong>The secure companion for your browser.</strong>
 </p>
 
