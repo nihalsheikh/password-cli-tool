@@ -2,9 +2,9 @@
  * Background Service Worker for EigenVault Extension
  * Handles secure key management, message routing, and coordination
  */
-import { isVaultInitialized, initializeVault, unlockVault, lockVault, readPasswordEntries, addPasswordEntry, updatePasswordEntry, deletePasswordEntry, searchPasswordEntries, exportToCSV, importFromCSV, } from '../core/storage';
-import { isWebAuthnSupported } from '../core/webauthn';
-import { generatePassword, isPasswordStrong } from '../core/password-gen';
+import { isVaultInitialized, initializeVault, unlockVault, lockVault, readPasswordEntries, addPasswordEntry, updatePasswordEntry, deletePasswordEntry, searchPasswordEntries, exportToCSV, importFromCSV, } from '../core/storage.js';
+import { isWebAuthnSupported } from '../core/webauthn.js';
+import { generatePassword, isPasswordStrong } from '../core/password-gen.js';
 // In-memory key cache (cleared on lock/logout)
 let dataEncryptionKey = null;
 let unlockTimestamp = null;

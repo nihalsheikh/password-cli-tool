@@ -2,7 +2,7 @@
  * WebAuthn biometric unlock module
  * Provides fingerprint/face recognition unlock for supported devices
  */
-import { getRandomBytes } from './crypto';
+import { getRandomBytes } from './crypto.js';
 const WEBAUTHN_CHALLENGE = 'eigenvault_webauthn_challenge';
 /**
  * Check if WebAuthn is supported in this browser

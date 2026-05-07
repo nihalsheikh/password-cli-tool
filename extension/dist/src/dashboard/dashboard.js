@@ -1,7 +1,7 @@
 /**
  * Dashboard UI Controller for EigenVault
  */
-import { generatePassword, getPasswordStrengthScore } from '../core/password-gen';
+import { generatePassword, getPasswordStrengthScore } from '../core/password-gen.js';
 // State
 let allEntries = [];
 let deleteTargetIndex = -1;

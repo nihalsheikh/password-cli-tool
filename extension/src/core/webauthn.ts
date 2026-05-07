@@ -3,7 +3,7 @@
  * Provides fingerprint/face recognition unlock for supported devices
  */
 
-import { encrypt, decrypt, getRandomBytes } from './crypto';
+import { encrypt, decrypt, getRandomBytes } from './crypto.js';
 
 const WEBAUTHN_CHALLENGE = 'eigenvault_webauthn_challenge';
 

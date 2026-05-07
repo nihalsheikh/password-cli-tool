@@ -12,7 +12,7 @@ import {
   importKey,
   hashData,
   getRandomBytes,
-} from './crypto';
+} from './crypto.js';
 
 // Storage keys
 const STORAGE_KEYS = {

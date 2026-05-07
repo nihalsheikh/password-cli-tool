@@ -1,7 +1,7 @@
 /**
  * Popup UI Controller for EigenVault
  */
-import { generatePassword, isPasswordStrong, getPasswordStrengthScore } from '../core/password-gen';
+import { generatePassword, isPasswordStrong, getPasswordStrengthScore } from '../core/password-gen.js';
 // DOM Elements
 const lockScreen = document.getElementById('lock-screen');
 const mainScreen = document.getElementById('main-screen');

@@ -18,10 +18,10 @@ import {
   exportToCSV,
   importFromCSV,
   type PasswordEntry,
-} from '../core/storage';
+} from '../core/storage.js';
 
-import { isWebAuthnSupported, authenticateWithBiometric } from '../core/webauthn';
-import { generatePassword, isPasswordStrong, isValidUrl, getNameFromUrl } from '../core/password-gen';
+import { isWebAuthnSupported, authenticateWithBiometric } from '../core/webauthn.js';
+import { generatePassword, isPasswordStrong, isValidUrl, getNameFromUrl } from '../core/password-gen.js';
 
 // In-memory key cache (cleared on lock/logout)
 let dataEncryptionKey: CryptoKey | null = null;

@@ -2,7 +2,7 @@
  * Encrypted storage layer using chrome.storage.sync
  * All data is encrypted before storage using AES-GCM
  */
-import { deriveKey, encrypt, decrypt, generateSalt, exportKey, importKey, hashData, } from './crypto';
+import { deriveKey, encrypt, decrypt, generateSalt, exportKey, importKey, hashData, } from './crypto.js';
 // Storage keys
 const STORAGE_KEYS = {
     MASTER_HASH: 'eigen_master_hash',

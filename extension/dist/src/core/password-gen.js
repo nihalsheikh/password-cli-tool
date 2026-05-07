@@ -2,7 +2,7 @@
  * Password generation module
  * Ported from project.py with equivalent functionality
  */
-import { getRandomBytes } from './crypto';
+import { getRandomBytes } from './crypto.js';
 // Character sets matching Python string module
 const ASCII_UPPERCASE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const ASCII_LOWERCASE = 'abcdefghijklmnopqrstuvwxyz';

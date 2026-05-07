@@ -2,7 +2,7 @@
  * Dashboard UI Controller for EigenVault
  */
 
-import { generatePassword, isPasswordStrong, getPasswordStrengthScore } from '../core/password-gen';
+import { generatePassword, isPasswordStrong, getPasswordStrengthScore } from '../core/password-gen.js';
 
 // State
 let allEntries: Array<{ name: string; url: string; username: string; password: string; note: string }> = [];
