@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EigenVault Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon">🔐</span>
+          <span class="logo-text">EigenVault</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-view="all">
+          <span class="nav-icon">📋</span>
+          All Passwords
+        </button>
+        <button class="nav-item" data-view="favorites">
+          <span class="nav-icon">⭐</span>
+          Favorites
+        </button>
+        <button class="nav-item" data-view="recent">
+          <span class="nav-icon">🕐</span>
+          Recent
+        </button>
+        <button class="nav-item" data-view="generator">
+          <span class="nav-icon">✨</span>
+          Generator
+        </button>
+        <button class="nav-item" data-view="settings">
+          <span class="nav-icon">⚙️</span>
+          Settings
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button id="lock-vault-btn" class="lock-btn">
+          <span class="nav-icon">🔒</span>
+          Lock Vault
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="content-header">
+        <div class="search-bar">
+          <span class="search-icon">🔍</span>
+          <input
+            type="text"
+            id="global-search"
+            placeholder="Search passwords, URLs, usernames..."
+          />
+        </div>
+
+        <div class="header-actions">
+          <button id="add-new-btn" class="primary-btn">
+            <span>➕</span> Add New
+          </button>
+          <button id="export-btn" class="secondary-btn">
+            <span>📤</span> Export
+          </button>
+          <button id="import-btn" class="secondary-btn">
+            <span>📥</span> Import
+          </button>
+        </div>
+      </header>
+
+      <!-- Password List View -->
+      <div id="view-all" class="view active">
+        <div class="view-header">
+          <h2>All Passwords</h2>
+          <span id="password-count" class="count-badge">0</span>
+        </div>
+
+        <div class="password-table-container">
+          <table class="password-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Username</th>
+                <th>URL</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="password-tbody">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Generator View -->
+      <div id="view-generator" class="view">
+        <div class="generator-container">
+          <h2>Password Generator</h2>
+
+          <div class="generator-card">
+            <div class="generated-password-display">
+              <code id="gen-password"></code>
+              <button id="gen-copy" class="icon-btn" title="Copy">📋</button>
+            </div>
+
+            <div class="strength-meter-large">
+              <div class="strength-bar"></div>
+              <span id="gen-strength">Strong</span>
+            </div>
+
+            <div class="generator-options">
+              <div class="option-group">
+                <label>Password Length: <span id="length-value">16</span></label>
+                <input
+                  type="range"
+                  id="gen-length"
+                  min="8"
+                  max="64"
+                  value="16"
+                />
+              </div>
+
+              <div class="option-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="opt-uppercase" checked />
+                  <span>Uppercase (A-Z)</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="opt-lowercase" checked />
+                  <span>Lowercase (a-z)</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="opt-digits" checked />
+                  <span>Numbers (0-9)</span>
+                </label>
+                <label class="checkbox-label">
+                  <input type="checkbox" id="opt-special" checked />
+                  <span>Special (!@#$...)</span>
+                </label>
+              </div>
+
+              <button id="gen-regenerate" class="primary-btn large">
+                🔄 Regenerate
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings View -->
+      <div id="view-settings" class="view">
+        <h2>Settings</h2>
+
+        <div class="settings-section">
+          <h3>Security</h3>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>Auto-lock Timeout</label>
+              <p class="setting-desc">Lock vault after period of inactivity</p>
+            </div>
+            <select id="autolock-timeout">
+              <option value="1">1 minute</option>
+              <option value="5">5 minutes</option>
+              <option value="15" selected>15 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="60">1 hour</option>
+              <option value="0">Never</option>
+            </select>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>Biometric Unlock</label>
+              <p class="setting-desc">Use fingerprint or face recognition</p>
+            </div>
+            <button id="setup-biometric" class="secondary-btn">
+              Setup Biometric
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Data Management</h3>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>Export Data</label>
+              <p class="setting-desc">Download all passwords as CSV</p>
+            </div>
+            <button id="settings-export" class="secondary-btn">
+              Export CSV
+            </button>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>Import Data</label>
+              <p class="setting-desc">Import passwords from CSV file</p>
+            </div>
+            <label class="secondary-btn file-input-label">
+              Import CSV
+              <input type="file" id="settings-import" accept=".csv" hidden />
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-section danger-zone">
+          <h3>Danger Zone</h3>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>Reset Vault</label>
+              <p class="setting-desc">Delete all passwords and reset master password</p>
+            </div>
+            <button id="reset-vault" class="danger-btn">
+              Reset Vault
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Add/Edit Modal -->
+  <div id="entry-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">Add Password</h2>
+        <button class="modal-close" id="modal-close">✕</button>
+      </div>
+
+      <form id="entry-form">
+        <input type="hidden" id="edit-index" />
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="entry-name">Site Name</label>
+            <input type="text" id="entry-name" placeholder="Example Corp" />
+          </div>
+
+          <div class="form-group">
+            <label for="entry-url">Website URL</label>
+            <input type="url" id="entry-url" placeholder="https://example.com" required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="entry-username">Username / Email</label>
+            <input type="text" id="entry-username" placeholder="you@email.com" required />
+          </div>
+
+          <div class="form-group">
+            <label for="entry-password">Password</label>
+            <div class="password-field-group">
+              <input type="password" id="entry-password" required />
+              <button type="button" id="toggle-password" class="icon-btn">👁</button>
+              <button type="button" id="generate-password" class="icon-btn">✨</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="entry-note">Notes</label>
+          <textarea id="entry-note" rows="3" placeholder="Work account, personal, etc."></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="modal-cancel" class="secondary-btn">Cancel</button>
+          <button type="submit" class="primary-btn">Save Password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="delete-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content small">
+      <div class="modal-header">
+        <h2>Delete Password</h2>
+        <button class="modal-close" id="delete-modal-close">✕</button>
+      </div>
+
+      <p class="delete-message">
+        Are you sure you want to delete this password for<br>
+        <strong id="delete-target"></strong>?
+      </p>
+
+      <div class="modal-actions">
+        <button id="delete-cancel" class="secondary-btn">Cancel</button>
+        <button id="delete-confirm" class="danger-btn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js" type="module"></script>
+</body>
+</html>

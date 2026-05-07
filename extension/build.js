@@ -16,13 +16,13 @@ const BUILD_DIR = join(EXT_ROOT, isFirefox ? 'build-firefox' : 'build');
 
 // Mapping of source files to output locations
 const FILE_MAPPINGS = [
-  { from: 'dist/background/service-worker.js', to: 'background/service-worker.js' },
-  { from: 'dist/content/content-script.js', to: 'content/content-script.js' },
-  { from: 'dist/core/crypto.js', to: 'core/crypto.js' },
-  { from: 'dist/core/storage.js', to: 'core/storage.js' },
-  { from: 'dist/core/password-gen.js', to: 'core/password-gen.js' },
-  { from: 'dist/core/webauthn.js', to: 'core/webauthn.js' },
-  { from: 'dist/dashboard/dashboard.js', to: 'dashboard/dashboard.js' },
+  { from: 'dist/src/background/service-worker.js', to: 'background/service-worker.js' },
+  { from: 'dist/src/content/content-script.js', to: 'content/content-script.js' },
+  { from: 'dist/src/core/crypto.js', to: 'core/crypto.js' },
+  { from: 'dist/src/core/storage.js', to: 'core/storage.js' },
+  { from: 'dist/src/core/password-gen.js', to: 'core/password-gen.js' },
+  { from: 'dist/src/core/webauthn.js', to: 'core/webauthn.js' },
+  { from: 'dist/src/dashboard/dashboard.js', to: 'dashboard/dashboard.js' },
   { from: 'dist/src/popup/popup.js', to: 'popup/popup.js' },
 ];
 
@@ -57,6 +57,11 @@ function build() {
   const manifestName = isFirefox ? 'manifest-firefox.json' : 'manifest.json';
   copyFileSync(join(EXT_ROOT, manifestName), join(BUILD_DIR, 'manifest.json'));
   console.log(`Copied: ${manifestName} -> manifest.json`);
+
+  // Copy Icons
+  ensureDir(join(BUILD_DIR, 'icons'));
+  copyFileSync(join(EXT_ROOT, 'icons/icon.svg'), join(BUILD_DIR, 'icons/icon.svg'));
+  console.log('Copied: icons/icon.svg');
 
   // Copy HTML and CSS files
   ensureDir(join(BUILD_DIR, 'popup'));
