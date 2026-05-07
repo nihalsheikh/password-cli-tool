@@ -59,8 +59,11 @@ function build() {
   console.log(`Copied: ${manifestName} -> manifest.json`);
 
   // Copy HTML and CSS files
+  ensureDir(join(BUILD_DIR, 'popup'));
   copyFileSync(join(EXT_ROOT, 'src/popup/popup.html'), join(BUILD_DIR, 'popup/popup.html'));
   copyFileSync(join(EXT_ROOT, 'src/popup/popup.css'), join(BUILD_DIR, 'popup/popup.css'));
+  
+  ensureDir(join(BUILD_DIR, 'dashboard'));
   copyFileSync(join(EXT_ROOT, 'src/dashboard/dashboard.html'), join(BUILD_DIR, 'dashboard/dashboard.html'));
   copyFileSync(join(EXT_ROOT, 'src/dashboard/dashboard.css'), join(BUILD_DIR, 'dashboard/dashboard.css'));
 
