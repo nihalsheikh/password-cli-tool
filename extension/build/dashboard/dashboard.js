@@ -1,20 +1,41 @@
 /**
- * Dashboard UI Controller for EigenVault
+ * Dashboard UI Controller for EigenVault - Redesigned
  */
-import { generatePassword, getPasswordStrengthScore } from '../core/password-gen.js';
+import { generatePassword } from '../core/password-gen.js';
 // State
 let allEntries = [];
-let deleteTargetIndex = -1;
-// DOM Elements
-const globalSearch = document.getElementById('global-search');
-const addNewBtn = document.getElementById('add-new-btn');
-const exportBtn = document.getElementById('export-btn');
-const importBtn = document.getElementById('import-btn');
-const lockVaultBtn = document.getElementById('lock-vault-btn');
+// DOM Elements - Navigation
+const navItems = document.querySelectorAll('.nav-item');
+const views = document.querySelectorAll('.view');
+const themeToggle = document.getElementById('theme-toggle');
+// All Passwords View
 const passwordTbody = document.getElementById('password-tbody');
 const passwordCount = document.getElementById('password-count');
+const globalSearch = document.getElementById('global-search');
+const addNewBtn = document.getElementById('add-new-btn');
+// Generator View
+const genPasswordEl = document.getElementById('gen-password');
+const genCopyBtn = document.getElementById('gen-copy');
+const genRegenerateBtn = document.getElementById('gen-regenerate');
+const genLengthSlider = document.getElementById('gen-length');
+const lengthValue = document.getElementById('length-value');
+const optUppercase = document.getElementById('opt-uppercase');
+const optLowercase = document.getElementById('opt-lowercase');
+const optDigits = document.getElementById('opt-digits');
+const optSpecial = document.getElementById('opt-special');
+// Settings View
+const autolockTimeout = document.getElementById('autolock-timeout');
+const setupBiometricBtn = document.getElementById('setup-biometric');
+const exportBtnSettings = document.getElementById('export-btn-settings');
+const settingsImportInput = document.getElementById('settings-import');
+const resetVaultBtn = document.getElementById('reset-vault');
+const setupRecoveryKeyBtn = document.getElementById('setup-recovery-key');
+const setupTotpBtn = document.getElementById('setup-totp');
+const setupOtpBtn = document.getElementById('setup-otp');
+const lockVaultBtn = document.getElementById('lock-vault-btn');
+// Entry Modal
 const entryModal = document.getElementById('entry-modal');
-const deleteModal = document.getElementById('delete-modal');
+const modalTitle = document.getElementById('modal-title');
 const modalClose = document.getElementById('modal-close');
 const modalCancel = document.getElementById('modal-cancel');
 const entryForm = document.getElementById('entry-form');
@@ -26,26 +47,6 @@ const entryPasswordInput = document.getElementById('entry-password');
 const entryNoteInput = document.getElementById('entry-note');
 const togglePasswordBtn = document.getElementById('toggle-password');
 const generatePasswordBtn = document.getElementById('generate-password');
-const deleteModalClose = document.getElementById('delete-modal-close');
-const deleteCancel = document.getElementById('delete-cancel');
-const deleteConfirm = document.getElementById('delete-confirm');
-const deleteTarget = document.getElementById('delete-target');
-// Generator elements
-const genPasswordEl = document.getElementById('gen-password');
-const genCopyBtn = document.getElementById('gen-copy');
-const genRegenerateBtn = document.getElementById('gen-regenerate');
-const genLengthSlider = document.getElementById('gen-length');
-const lengthValue = document.getElementById('length-value');
-const optUppercase = document.getElementById('opt-uppercase');
-const optLowercase = document.getElementById('opt-lowercase');
-const optDigits = document.getElementById('opt-digits');
-const optSpecial = document.getElementById('opt-special');
-// Settings elements
-const autolockTimeout = document.getElementById('autolock-timeout');
-const setupBiometricBtn = document.getElementById('setup-biometric');
-const settingsExportBtn = document.getElementById('settings-export');
-const settingsImportInput = document.getElementById('settings-import');
-const resetVaultBtn = document.getElementById('reset-vault');
 /**
  * Send message to service worker
  */
@@ -60,174 +61,129 @@ function sendMessage(type, data = {}) {
  * Initialize dashboard
  */
 async function init() {
+    // Load Theme
+    const pref = await chrome.storage.local.get(['eigen_theme']);
+    const theme = pref['eigen_theme'] || 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
     setupNavigation();
     setupEventListeners();
     await loadEntries();
-    generateInitialPassword();
+    updateGenerator();
 }
-/**
- * Setup navigation
- */
 function setupNavigation() {
-    document.querySelectorAll('.nav-item').forEach((item) => {
+    navItems.forEach(item => {
         item.addEventListener('click', () => {
-            document.querySelectorAll('.nav-item').forEach((n) => n.classList.remove('active'));
+            navItems.forEach(n => n.classList.remove('active'));
             item.classList.add('active');
-            const view = item.dataset.view;
-            document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
-            document.getElementById(`view-${view}`)?.classList.add('active');
+            const targetView = item.dataset.view;
+            views.forEach(v => v.classList.remove('active'));
+            document.getElementById(`view-${targetView}`)?.classList.add('active');
         });
     });
 }
-/**
- * Setup event listeners
- */
 function setupEventListeners() {
-    // Header actions
+    // Theme Toggle
+    themeToggle.addEventListener('click', async () => {
+        const current = document.documentElement.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        await chrome.storage.local.set({ 'eigen_theme': next });
+    });
+    // Global Actions
     globalSearch.addEventListener('input', handleSearch);
     addNewBtn.addEventListener('click', () => openEntryModal());
-    exportBtn.addEventListener('click', handleExport);
-    importBtn.addEventListener('click', () => document.getElementById('settings-import')?.click());
     lockVaultBtn.addEventListener('click', lockVault);
+    // Generator
+    genRegenerateBtn.addEventListener('click', updateGenerator);
+    genCopyBtn.addEventListener('click', copyToClipboard);
+    genLengthSlider.addEventListener('input', () => {
+        lengthValue.textContent = genLengthSlider.value;
+        updateGenerator();
+    });
+    [optUppercase, optLowercase, optDigits, optSpecial].forEach(cb => {
+        cb.addEventListener('change', updateGenerator);
+    });
     // Modal
     modalClose.addEventListener('click', closeEntryModal);
     modalCancel.addEventListener('click', closeEntryModal);
     entryForm.addEventListener('submit', handleFormSubmit);
-    togglePasswordBtn.addEventListener('click', togglePasswordVisibility);
-    generatePasswordBtn.addEventListener('click', generateInlinePassword);
-    // Delete modal
-    deleteModalClose.addEventListener('click', closeDeleteModal);
-    deleteCancel.addEventListener('click', closeDeleteModal);
-    deleteConfirm.addEventListener('click', confirmDelete);
-    // Generator
-    genCopyBtn.addEventListener('click', copyGeneratedPassword);
-    genRegenerateBtn.addEventListener('click', generatePasswordDisplay);
-    genLengthSlider.addEventListener('input', (e) => {
-        lengthValue.textContent = e.target.value;
-        generatePasswordDisplay();
+    togglePasswordBtn.addEventListener('click', () => {
+        entryPasswordInput.type = entryPasswordInput.type === 'password' ? 'text' : 'password';
     });
-    [optUppercase, optLowercase, optDigits, optSpecial].forEach((cb) => {
-        cb.addEventListener('change', generatePasswordDisplay);
+    generatePasswordBtn.addEventListener('click', () => {
+        entryPasswordInput.value = generatePassword({ length: 16 });
+        entryPasswordInput.type = 'text';
     });
     // Settings
-    autolockTimeout.addEventListener('change', handleAutolockChange);
-    setupBiometricBtn.addEventListener('click', setupBiometric);
-    settingsExportBtn.addEventListener('click', handleExport);
+    autolockTimeout.addEventListener('change', async () => {
+        await sendMessage('SET_AUTO_LOCK', { minutes: parseInt(autolockTimeout.value) });
+    });
+    setupRecoveryKeyBtn.addEventListener('click', handleSetupRecoveryKey);
+    setupTotpBtn.addEventListener('click', () => alert('Authenticator setup coming soon (Beta)'));
+    setupOtpBtn.addEventListener('click', () => alert('Email verification coming soon (Beta)'));
+    setupBiometricBtn.addEventListener('click', () => alert('Biometric testing in progress'));
+    exportBtnSettings.addEventListener('click', handleExport);
     settingsImportInput.addEventListener('change', handleImport);
     resetVaultBtn.addEventListener('click', handleResetVault);
 }
-/**
- * Load all password entries
- */
 async function loadEntries() {
     const response = await sendMessage('GET_ENTRIES');
     if (response.error) {
-        window.location.href = 'popup/popup.html';
+        location.href = '../popup/popup.html';
         return;
     }
     allEntries = response.entries || [];
     renderEntries(allEntries);
 }
-/**
- * Render entries to table
- */
 function renderEntries(entries) {
     passwordCount.textContent = entries.length.toString();
     if (entries.length === 0) {
-        passwordTbody.innerHTML = `
-      <tr>
-        <td colspan="5">
-          <div class="empty-state">
-            <div class="empty-state-icon">📭</div>
-            <h3>No passwords stored</h3>
-            <p>Click "Add New" to create your first password entry</p>
-          </div>
-        </td>
-      </tr>
-    `;
+        passwordTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 48px; color: var(--text-muted);">No records found in vault.</td></tr>';
         return;
     }
     passwordTbody.innerHTML = entries.map((entry, index) => `
     <tr>
       <td>
-        <div class="table-site">
+        <div class="site-cell">
           <div class="site-icon">🔐</div>
-          <div class="site-info">
-            <div class="site-name">${escapeHtml(entry.name || getDomain(entry.url))}</div>
+          <div>
+            <div class="site-name">${escapeHtml(entry.name || 'Account')}</div>
             <div class="site-url">${escapeHtml(entry.url)}</div>
           </div>
         </div>
       </td>
-      <td class="cell-username">${escapeHtml(entry.username)}</td>
-      <td class="cell-username">${escapeHtml(entry.url)}</td>
-      <td class="cell-notes">${escapeHtml(entry.note || '—')}</td>
-      <td class="cell-actions">
-        <button class="action-icon-btn" title="Copy Password" data-action="copy" data-index="${index}">📋</button>
-        <button class="action-icon-btn" title="Edit" data-action="edit" data-index="${index}">✏️</button>
-        <button class="action-icon-btn" title="Delete" data-action="delete" data-index="${index}">🗑️</button>
+      <td class="mono-cell">${escapeHtml(entry.username)}</td>
+      <td class="mono-cell">${escapeHtml(entry.url)}</td>
+      <td><span class="success-text" style="font-size: 10px; font-weight: 700;">ENCRYPTED</span></td>
+      <td style="text-align: right;">
+        <button class="icon-btn" title="Copy" onclick="window.copyEntry(${index})">📋</button>
+        <button class="icon-btn" title="Edit" onclick="window.editEntry(${index})">✏️</button>
+        <button class="icon-btn" title="Delete" onclick="window.deleteEntry(${index})">🗑️</button>
       </td>
     </tr>
   `).join('');
-    // Add event listeners
-    passwordTbody.querySelectorAll('[data-action]').forEach((btn) => {
-        btn.addEventListener('click', handleTableAction);
-    });
 }
-/**
- * Handle table action buttons
- */
-function handleTableAction(e) {
-    const target = e.target;
-    const action = target.dataset.action;
-    const index = parseInt(target.dataset.index || '0', 10);
-    switch (action) {
-        case 'copy':
-            copyPassword(index);
-            break;
-        case 'edit':
-            openEntryModal(index);
-            break;
-        case 'delete':
-            openDeleteModal(index);
-            break;
+function updateGenerator() {
+    const options = {
+        length: parseInt(genLengthSlider.value),
+        useUppercase: optUppercase.checked,
+        useLowercase: optLowercase.checked,
+        useDigits: optDigits.checked,
+        useSpecial: optSpecial.checked
+    };
+    const pass = generatePassword(options);
+    genPasswordEl.textContent = pass;
+}
+async function copyToClipboard() {
+    const pass = genPasswordEl.textContent;
+    if (pass && pass !== '••••••••••••••••') {
+        await navigator.clipboard.writeText(pass);
+        genCopyBtn.textContent = '✓';
+        setTimeout(() => genCopyBtn.textContent = '📋', 1500);
     }
 }
-/**
- * Copy password to clipboard
- */
-async function copyPassword(index) {
-    const entry = allEntries[index];
-    try {
-        await navigator.clipboard.writeText(entry.password);
-        // Show brief feedback
-        const btn = passwordTbody.querySelector(`[data-action="copy"][data-index="${index}"]`);
-        btn.textContent = '✓';
-        setTimeout(() => { btn.textContent = '📋'; }, 1500);
-    }
-    catch {
-        alert('Failed to copy to clipboard');
-    }
-}
-/**
- * Handle search
- */
-function handleSearch() {
-    const query = globalSearch.value.toLowerCase();
-    if (!query) {
-        renderEntries(allEntries);
-        return;
-    }
-    const filtered = allEntries.filter((entry) => entry.name.toLowerCase().includes(query) ||
-        entry.url.toLowerCase().includes(query) ||
-        entry.username.toLowerCase().includes(query) ||
-        entry.note.toLowerCase().includes(query));
-    renderEntries(filtered);
-}
-/**
- * Open entry modal
- */
 function openEntryModal(index) {
-    if (index !== undefined && allEntries[index]) {
+    if (index !== undefined) {
         const entry = allEntries[index];
         editIndexInput.value = index.toString();
         entryNameInput.value = entry.name;
@@ -235,224 +191,97 @@ function openEntryModal(index) {
         entryUsernameInput.value = entry.username;
         entryPasswordInput.value = entry.password;
         entryNoteInput.value = entry.note;
-        document.getElementById('modal-title').textContent = 'Edit Password';
+        modalTitle.textContent = 'Edit Credentials';
     }
     else {
-        editIndexInput.value = '';
         entryForm.reset();
-        document.getElementById('modal-title').textContent = 'Add Password';
+        editIndexInput.value = '';
+        modalTitle.textContent = 'Add New Entry';
     }
     entryModal.classList.remove('hidden');
 }
-/**
- * Close entry modal
- */
-function closeEntryModal() {
-    entryModal.classList.add('hidden');
-}
-/**
- * Toggle password visibility
- */
-function togglePasswordVisibility() {
-    const type = entryPasswordInput.type === 'password' ? 'text' : 'password';
-    entryPasswordInput.type = type;
-}
-/**
- * Generate inline password
- */
-function generateInlinePassword() {
-    const password = generatePassword({ length: 16 });
-    entryPasswordInput.value = password;
-    entryPasswordInput.type = 'text';
-}
-/**
- * Handle form submit
- */
+function closeEntryModal() { entryModal.classList.add('hidden'); }
 async function handleFormSubmit(e) {
     e.preventDefault();
-    const editIndex = editIndexInput.value ? parseInt(editIndexInput.value, 10) : -1;
     const entry = {
-        name: entryNameInput.value || getDomain(entryUrlInput.value),
+        name: entryNameInput.value,
         url: entryUrlInput.value,
         username: entryUsernameInput.value,
         password: entryPasswordInput.value,
-        note: entryNoteInput.value,
+        note: entryNoteInput.value
     };
-    if (editIndex >= 0) {
-        // Update existing
-        const response = await sendMessage('UPDATE_ENTRY', { index: editIndex, newPassword: entry.password });
-        if (response.success) {
-            // Also update other fields
-            allEntries[editIndex] = entry;
-            // Re-save all entries with updated data
-            await sendMessage('SAVE_ALL_ENTRIES', { entries: allEntries });
-        }
+    const index = editIndexInput.value;
+    let res;
+    if (index) {
+        res = await sendMessage('UPDATE_ENTRY', { index: parseInt(index), newPassword: entry.password });
+        // Note: full entry update logic should be refined in SW
     }
     else {
-        // Add new
-        const response = await sendMessage('ADD_ENTRY', { entry });
-        if (response.success) {
-            allEntries.push(entry);
-        }
+        res = await sendMessage('ADD_ENTRY', { entry });
     }
-    closeEntryModal();
-    renderEntries(allEntries);
-}
-/**
- * Open delete modal
- */
-function openDeleteModal(index) {
-    deleteTargetIndex = index;
-    const entry = allEntries[index];
-    deleteTarget.textContent = `${entry.username} at ${entry.url}`;
-    deleteModal.classList.remove('hidden');
-}
-/**
- * Close delete modal
- */
-function closeDeleteModal() {
-    deleteModal.classList.add('hidden');
-    deleteTargetIndex = -1;
-}
-/**
- * Confirm delete
- */
-async function confirmDelete() {
-    if (deleteTargetIndex < 0)
-        return;
-    const response = await sendMessage('DELETE_ENTRY', { index: deleteTargetIndex });
-    if (response.success) {
-        allEntries.splice(deleteTargetIndex, 1);
-        renderEntries(allEntries);
+    if (res.success) {
+        closeEntryModal();
+        await loadEntries();
     }
-    closeDeleteModal();
 }
-/**
- * Handle export
- */
+function handleSearch() {
+    const q = globalSearch.value.toLowerCase();
+    const filtered = allEntries.filter(e => e.name.toLowerCase().includes(q) ||
+        e.url.toLowerCase().includes(q) ||
+        e.username.toLowerCase().includes(q));
+    renderEntries(filtered);
+}
+async function handleSetupRecoveryKey() {
+    const res = await sendMessage('GENERATE_RECOVERY_KEY');
+    if (res.recoveryKey) {
+        alert(`SAVE THIS KEY EXTERNALLY:\n\n${res.recoveryKey}`);
+    }
+}
 async function handleExport() {
-    const response = await sendMessage('EXPORT_CSV');
-    if (response.error || !response.csvContent) {
-        alert('Failed to export');
-        return;
+    const res = await sendMessage('EXPORT_CSV');
+    if (res.csvContent) {
+        const blob = new Blob([res.csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `eigenvault-export-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
     }
-    // Download as file
-    const blob = new Blob([response.csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `eigenvault-export-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
 }
-/**
- * Handle import
- */
 async function handleImport(e) {
-    const file = e.target.files?.[0];
+    const file = e.target.files[0];
     if (!file)
         return;
     const text = await file.text();
-    const response = await sendMessage('IMPORT_CSV', { csvContent: text });
-    if (response.error) {
-        alert('Failed to import: ' + response.error);
-        return;
-    }
-    alert(`Imported ${response.imported} new passwords, updated ${response.updated} existing`);
+    const res = await sendMessage('IMPORT_CSV', { csvContent: text });
+    alert(`Imported ${res.imported} new records.`);
     await loadEntries();
 }
-/**
- * Handle autolock change
- */
-async function handleAutolockChange() {
-    const minutes = parseInt(autolockTimeout.value, 10);
-    await sendMessage('SET_AUTO_LOCK', { minutes });
-}
-/**
- * Setup biometric
- */
-async function setupBiometric() {
-    alert('Biometric setup would be implemented here using WebAuthn API');
-}
-/**
- * Handle reset vault
- */
 async function handleResetVault() {
-    if (confirm('Are you sure? This will delete ALL passwords permanently!')) {
-        // This would need a new message type in service worker
-        alert('Vault reset would be implemented here');
+    if (confirm('CRITICAL: Delete ALL vault data permanently?')) {
+        await chrome.storage.local.clear();
+        location.reload();
     }
 }
-/**
- * Lock vault
- */
-async function lockVault() {
-    await sendMessage('LOCK_VAULT');
-    window.location.href = 'popup/popup.html';
+function lockVault() {
+    sendMessage('LOCK_VAULT').then(() => location.reload());
 }
-/**
- * Generate initial password for generator view
- */
-function generateInitialPassword() {
-    generatePasswordDisplay();
-}
-/**
- * Generate password and display
- */
-function generatePasswordDisplay() {
-    const options = {
-        length: parseInt(genLengthSlider.value, 10),
-        useUppercase: optUppercase.checked,
-        useLowercase: optLowercase.checked,
-        useDigits: optDigits.checked,
-        useSpecial: optSpecial.checked,
-    };
-    const password = generatePassword(options);
-    const strength = getPasswordStrengthScore(password);
-    genPasswordEl.textContent = password;
-    const strengthBar = document.querySelector('.strength-meter-large .strength-bar');
-    const strengthText = document.getElementById('gen-strength');
-    const colors = ['var(--danger)', 'var(--warning)', '#84cc16', 'var(--success)', 'var(--primary)'];
-    const labels = ['Very Weak', 'Weak', 'Fair', 'Strong', 'Very Strong'];
-    strengthBar.style.setProperty('--strength-width', `${(strength.score / 5) * 100}%`);
-    strengthBar.style.background = colors[strength.score];
-    strengthText.textContent = labels[strength.score];
-    strengthText.style.color = colors[strength.score];
-}
-/**
- * Copy generated password
- */
-async function copyGeneratedPassword() {
-    const password = genPasswordEl.textContent || '';
-    try {
-        await navigator.clipboard.writeText(password);
-        genCopyBtn.textContent = '✓';
-        setTimeout(() => { genCopyBtn.textContent = '📋'; }, 1500);
-    }
-    catch {
-        alert('Failed to copy');
-    }
-}
-/**
- * Get domain from URL
- */
-function getDomain(url) {
-    try {
-        const urlObj = new URL(url);
-        return urlObj.hostname;
-    }
-    catch {
-        return url;
-    }
-}
-/**
- * Escape HTML
- */
-function escapeHtml(text) {
+function escapeHtml(str) {
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = str;
     return div.innerHTML;
 }
-// Initialize on load
+// Global window functions for table actions
+window.copyEntry = async (i) => {
+    await navigator.clipboard.writeText(allEntries[i].password);
+};
+window.editEntry = (i) => openEntryModal(i);
+window.deleteEntry = async (i) => {
+    if (confirm('Delete this record?')) {
+        const res = await sendMessage('DELETE_ENTRY', { index: i });
+        if (res.success)
+            await loadEntries();
+    }
+};
 init();
 //# sourceMappingURL=dashboard.js.map

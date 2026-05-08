@@ -8,6 +8,8 @@ const WEBAUTHN_CHALLENGE = 'eigenvault_webauthn_challenge';
  * Check if WebAuthn is supported in this browser
  */
 export function isWebAuthnSupported() {
+    if (typeof window === 'undefined')
+        return false;
     return window.PublicKeyCredential !== undefined &&
         navigator.credentials !== undefined;
 }
@@ -15,6 +17,8 @@ export function isWebAuthnSupported() {
  * Check if platform authenticator (biometric) is available
  */
 export async function isBiometricAvailable() {
+    if (typeof window === 'undefined')
+        return false;
     if (!isWebAuthnSupported())
         return false;
     try {
@@ -30,6 +34,8 @@ export async function isBiometricAvailable() {
  * Returns the credential ID that should be stored
  */
 export async function registerBiometricCredential(userId) {
+    if (typeof window === 'undefined')
+        return null;
     try {
         const challenge = getRandomBytes(32);
         const createOptions = {
@@ -125,7 +131,7 @@ export async function storeRecoveryKey(recoveryKey, credentialId) {
         // Store encrypted recovery key in chrome.storage
         const response = credential.response;
         const authData = new Uint8Array(response.authenticatorData);
-        await chrome.storage.sync.set({
+        await chrome.storage.local.set({
             'eigen_recovery_encrypted': {
                 data: recoveryKey,
                 authDataHash: arrayBufferToBase64(await crypto.subtle.digest('SHA-256', authData)),
@@ -143,7 +149,7 @@ export async function storeRecoveryKey(recoveryKey, credentialId) {
  */
 export async function retrieveRecoveryKey(credentialId) {
     try {
-        const result = await chrome.storage.sync.get(['eigen_recovery_encrypted']);
+        const result = await chrome.storage.local.get(['eigen_recovery_encrypted']);
         const encrypted = result['eigen_recovery_encrypted'];
         if (!encrypted)
             return null;

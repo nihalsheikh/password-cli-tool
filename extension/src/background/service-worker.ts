@@ -17,18 +17,43 @@ import {
   searchPasswordEntries,
   exportToCSV,
   importFromCSV,
+  generateRecoveryKey,
+  resetMasterPassword,
+  readMFASettings,
+  updateMFASettings,
   type PasswordEntry,
 } from '../core/storage.js';
 
 import { isWebAuthnSupported, authenticateWithBiometric } from '../core/webauthn.js';
 import { generatePassword, isPasswordStrong, isValidUrl, getNameFromUrl } from '../core/password-gen.js';
+import { generateSecret, verifyTOTP } from '../core/otp.js';
 
-// In-memory key cache (cleared on lock/logout)
+// State
 let dataEncryptionKey: CryptoKey | null = null;
+let pendingKey: CryptoKey | null = null; // Key that passed password check but needs MFA
 let unlockTimestamp: number | null = null;
+let nativePort: chrome.runtime.Port | null = null;
 
-// Auto-lock timeout (default 15 minutes)
-let autoLockMinutes = 15;
+// Connect to Native Messaging Host
+function connectNative() {
+  try {
+    nativePort = chrome.runtime.connectNative('com.eigenvault.sync');
+    nativePort.onMessage.addListener((msg) => {
+      console.log('[EigenVault] Native message received:', msg);
+    });
+    nativePort.onDisconnect.addListener(() => {
+      console.log('[EigenVault] Native host disconnected:', chrome.runtime.lastError);
+      nativePort = null;
+    });
+  } catch (err) {
+    console.log('[EigenVault] Native messaging not available');
+  }
+}
+
+connectNative();
+
+// Auto-lock timeout (default 5 minutes)
+let autoLockMinutes = 5;
 
 /**
  * Check if session has expired due to auto-lock
@@ -63,29 +88,109 @@ function resetAutoLockTimer() {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     try {
+      console.log(`[EigenVault] Processing message: ${message.type}`);
       switch (message.type) {
         case 'CHECK_INITIALIZED':
-          sendResponse({ initialized: await isVaultInitialized() });
+          const initialized = await isVaultInitialized();
+          sendResponse({ initialized });
           break;
 
         case 'INITIALIZE_VAULT':
           {
-            const success = await initializeVault(message.masterPassword);
-            sendResponse({ success });
+            try {
+              const success = await initializeVault(message.masterPassword);
+              sendResponse({ success });
+            } catch (initError) {
+              console.error('[EigenVault] Initialization failed:', initError);
+              sendResponse({ success: false, error: `Init failed: ${initError instanceof Error ? initError.message : 'Unknown'}` });
+            }
           }
           break;
 
         case 'UNLOCK_WITH_PASSWORD':
           {
-            const result = await unlockVault(message.masterPassword);
-            if (result.success && result.key) {
-              dataEncryptionKey = result.key;
-              unlockTimestamp = Date.now();
-              // Load auto-lock setting
-              const pref = await chrome.storage.sync.get(['eigen_autolock_minutes']);
-              autoLockMinutes = pref['eigen_autolock_minutes'] || 15;
+            try {
+              const result = await unlockVault(message.masterPassword);
+              if (result.success && result.key) {
+                // Check if MFA is enabled
+                const mfa = await readMFASettings(result.key);
+                if (mfa.totpEnabled) {
+                  pendingKey = result.key;
+                  sendResponse({ success: true, mfaRequired: true });
+                  return;
+                }
+
+                dataEncryptionKey = result.key;
+                unlockTimestamp = Date.now();
+                const pref = await chrome.storage.local.get(['eigen_autolock_minutes']);
+                autoLockMinutes = pref['eigen_autolock_minutes'] || 15;
+              }
+              sendResponse(result);
+            } catch (unlockError) {
+              console.error('[EigenVault] Unlock failed:', unlockError);
+              sendResponse({ success: false, error: `Unlock failed: ${unlockError instanceof Error ? unlockError.message : 'Unknown'}` });
             }
-            sendResponse(result);
+          }
+          break;
+
+        case 'VERIFY_MFA_CODE':
+          {
+            if (!pendingKey) {
+              sendResponse({ success: false, error: 'No pending session' });
+              return;
+            }
+            const mfa = await readMFASettings(pendingKey);
+            if (mfa.totpSecret) {
+              const valid = await verifyTOTP(mfa.totpSecret, message.code);
+              if (valid) {
+                dataEncryptionKey = pendingKey;
+                pendingKey = null;
+                unlockTimestamp = Date.now();
+                sendResponse({ success: true });
+              } else {
+                sendResponse({ success: false, error: 'Invalid MFA code' });
+              }
+            } else {
+              sendResponse({ success: false, error: 'MFA not configured' });
+            }
+          }
+          break;
+
+        case 'VERIFY_MFA_CODE_MOCK':
+          {
+            const valid = await verifyTOTP(message.secret, message.code);
+            sendResponse({ success: valid });
+          }
+          break;
+
+        case 'GET_MFA_SETTINGS':
+          {
+            const key = await getValidKey();
+            if (!key) {
+              sendResponse({ error: 'Vault locked' });
+              return;
+            }
+            const mfa = await readMFASettings(key);
+            sendResponse({ mfa });
+          }
+          break;
+
+        case 'GENERATE_TOTP_SECRET':
+          {
+            const secret = generateSecret();
+            sendResponse({ secret });
+          }
+          break;
+
+        case 'UPDATE_MFA_SETTINGS':
+          {
+            const key = await getValidKey();
+            if (!key) {
+              sendResponse({ error: 'Vault locked' });
+              return;
+            }
+            const success = await updateMFASettings(message.settings, key);
+            sendResponse({ success });
           }
           break;
 
@@ -225,7 +330,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'SET_AUTO_LOCK':
           {
             autoLockMinutes = message.minutes;
-            await chrome.storage.sync.set({ eigen_autolock_minutes: message.minutes });
+            await chrome.storage.local.set({ eigen_autolock_minutes: message.minutes });
             sendResponse({ success: true });
           }
           break;
@@ -234,6 +339,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           {
             const supported = isWebAuthnSupported();
             sendResponse({ supported });
+          }
+          break;
+
+        case 'GET_BROWSER_PASSWORDS':
+          {
+            // Note: Direct browser credential access requires high-privilege APIs 
+            // often restricted to system apps. As a safe fallback for modern browsers,
+            // we provide instructions or trigger the built-in export/import bridge.
+            sendResponse({ error: 'Direct browser access requires user confirmation via CSV export for security.' });
+          }
+          break;
+
+        case 'GENERATE_RECOVERY_KEY':
+          {
+            const key = await getValidKey();
+            if (!key) {
+              sendResponse({ error: 'Vault locked' });
+              return;
+            }
+            const recoveryKey = await generateRecoveryKey(key);
+            sendResponse({ recoveryKey });
+          }
+          break;
+
+        case 'RESET_MASTER_PASSWORD':
+          {
+            const success = await resetMasterPassword(message.recoveryKey, message.newPassword);
+            sendResponse({ success });
           }
           break;
 

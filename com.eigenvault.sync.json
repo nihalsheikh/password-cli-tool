@@ -1,0 +1,9 @@
+{
+  "name": "com.eigenvault.sync",
+  "description": "EigenVault Sync Host",
+  "path": "/home/nihal/Documents/projects/pswd-gen-and-mng/eigenvault_host.py",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://placeholder-id/"
+  ]
+}

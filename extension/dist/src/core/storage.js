@@ -1,5 +1,5 @@
 /**
- * Encrypted storage layer using chrome.storage.sync
+ * Encrypted storage layer using chrome.storage.local
  * All data is encrypted before storage using AES-GCM
  */
 import { deriveKey, encrypt, decrypt, generateSalt, exportKey, importKey, hashData, } from './crypto.js';
@@ -12,13 +12,115 @@ const STORAGE_KEYS = {
     WEBAUTHN_CREDENTIAL: 'eigen_webauthn_cred',
     SESSION_UNLOCKED: 'eigen_session_unlocked',
     AUTO_LOCK_MINUTES: 'eigen_autolock_minutes',
+    RECOVERY_DATA: 'eigen_recovery_data',
+    MFA_SETTINGS: 'eigen_mfa_settings', // Store TOTP secret/settings
 };
+/**
+ * Generate a recovery key and store the encrypted DEK
+ */
+export async function generateRecoveryKey(dataKey) {
+    const recoveryKey = Array.from(crypto.getRandomValues(new Uint8Array(24)))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    const salt = generateSalt();
+    const key = await deriveKey(recoveryKey, salt);
+    const exportedDataKey = await exportKey(dataKey);
+    const { ciphertext, iv } = await encrypt(JSON.stringify({ key: Array.from(exportedDataKey) }), key);
+    await chrome.storage.local.set({
+        [STORAGE_KEYS.RECOVERY_DATA]: {
+            ciphertext: Array.from(ciphertext),
+            iv: Array.from(iv),
+            salt: Array.from(salt)
+        }
+    });
+    return recoveryKey;
+}
+/**
+ * Reset master password using a recovery key
+ */
+export async function resetMasterPassword(recoveryKey, newMasterPassword) {
+    try {
+        const result = await chrome.storage.local.get([STORAGE_KEYS.RECOVERY_DATA]);
+        const recoveryData = result[STORAGE_KEYS.RECOVERY_DATA];
+        if (!recoveryData)
+            return false;
+        const salt = new Uint8Array(recoveryData.salt);
+        const key = await deriveKey(recoveryKey, salt);
+        const keyData = await decrypt(new Uint8Array(recoveryData.ciphertext), new Uint8Array(recoveryData.iv), key);
+        const parsed = JSON.parse(keyData);
+        const dataKey = await importKey(new Uint8Array(parsed.key));
+        // Now re-initialize vault components with new password but same data key
+        const newSalt = generateSalt();
+        const newMasterKey = await deriveKey(newMasterPassword, newSalt);
+        const masterHash = await hashData(newMasterPassword);
+        const exportedDataKey = await exportKey(dataKey);
+        const { ciphertext: encryptedKey, iv: keyIv } = await encrypt(JSON.stringify({ key: Array.from(exportedDataKey) }), newMasterKey);
+        await chrome.storage.local.set({
+            [STORAGE_KEYS.SALT]: Array.from(newSalt),
+            [STORAGE_KEYS.ENCRYPTED_KEY]: {
+                ciphertext: Array.from(encryptedKey),
+                iv: Array.from(keyIv),
+            },
+            [STORAGE_KEYS.MASTER_HASH]: Array.from(masterHash),
+            [STORAGE_KEYS.SESSION_UNLOCKED]: false
+        });
+        return true;
+    }
+    catch (error) {
+        console.error('[EigenVault] Reset failed:', error);
+        return false;
+    }
+}
+/**
+ * Read MFA settings
+ */
+export async function readMFASettings(dataKey) {
+    const result = await chrome.storage.local.get([STORAGE_KEYS.ENCRYPTED_DATA]);
+    const encryptedData = result[STORAGE_KEYS.ENCRYPTED_DATA];
+    if (!encryptedData?.ciphertext?.length) {
+        return { totpEnabled: false, otpEnabled: false };
+    }
+    try {
+        const decrypted = await decrypt(new Uint8Array(encryptedData.ciphertext), new Uint8Array(encryptedData.iv), dataKey);
+        const data = JSON.parse(decrypted);
+        return data.mfaSettings || { totpEnabled: false, otpEnabled: false };
+    }
+    catch {
+        return { totpEnabled: false, otpEnabled: false };
+    }
+}
+/**
+ * Update MFA settings
+ */
+export async function updateMFASettings(mfaSettings, dataKey) {
+    const result = await chrome.storage.local.get([STORAGE_KEYS.ENCRYPTED_DATA]);
+    const encryptedData = result[STORAGE_KEYS.ENCRYPTED_DATA];
+    let entries = [];
+    if (encryptedData?.ciphertext?.length) {
+        const decrypted = await decrypt(new Uint8Array(encryptedData.ciphertext), new Uint8Array(encryptedData.iv), dataKey);
+        const data = JSON.parse(decrypted);
+        entries = data.entries;
+    }
+    const newData = {
+        entries,
+        lastModified: Date.now(),
+        mfaSettings,
+    };
+    const { ciphertext, iv } = await encrypt(JSON.stringify(newData), dataKey);
+    await chrome.storage.local.set({
+        [STORAGE_KEYS.ENCRYPTED_DATA]: {
+            ciphertext: Array.from(ciphertext),
+            iv: Array.from(iv),
+        },
+    });
+    return true;
+}
 /**
  * Check if vault is initialized (master password set)
  */
 export async function isVaultInitialized() {
     return new Promise((resolve) => {
-        chrome.storage.sync.get([STORAGE_KEYS.SALT], (result) => {
+        chrome.storage.local.get([STORAGE_KEYS.SALT], (result) => {
             resolve(!!result[STORAGE_KEYS.SALT]);
         });
     });
@@ -27,27 +129,34 @@ export async function isVaultInitialized() {
  * Initialize vault with master password
  */
 export async function initializeVault(masterPassword) {
-    const salt = generateSalt();
-    const key = await deriveKey(masterPassword, salt);
-    const masterHash = await hashData(masterPassword);
-    // Generate and encrypt the data encryption key
-    const dataKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
-    const exportedDataKey = await exportKey(dataKey);
-    const { ciphertext: encryptedKey, iv: keyIv } = await encrypt(JSON.stringify({ key: Array.from(exportedDataKey) }), key);
-    // Store initialization data
-    await chrome.storage.sync.set({
-        [STORAGE_KEYS.SALT]: Array.from(salt),
-        [STORAGE_KEYS.ENCRYPTED_KEY]: {
-            ciphertext: Array.from(encryptedKey),
-            iv: Array.from(keyIv),
-        },
-        [STORAGE_KEYS.MASTER_HASH]: Array.from(masterHash),
-        [STORAGE_KEYS.ENCRYPTED_DATA]: {
-            ciphertext: [],
-            iv: [],
-        },
-    });
-    return true;
+    try {
+        const salt = generateSalt();
+        const key = await deriveKey(masterPassword, salt);
+        const masterHash = await hashData(masterPassword);
+        // Generate and encrypt the data encryption key
+        const dataKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+        const exportedDataKey = await exportKey(dataKey);
+        const { ciphertext: encryptedKey, iv: keyIv } = await encrypt(JSON.stringify({ key: Array.from(exportedDataKey) }), key);
+        // Store initialization data
+        await chrome.storage.local.set({
+            [STORAGE_KEYS.SALT]: Array.from(salt),
+            [STORAGE_KEYS.ENCRYPTED_KEY]: {
+                ciphertext: Array.from(encryptedKey),
+                iv: Array.from(keyIv),
+            },
+            [STORAGE_KEYS.MASTER_HASH]: Array.from(masterHash),
+            [STORAGE_KEYS.ENCRYPTED_DATA]: {
+                ciphertext: [],
+                iv: [],
+            },
+            [STORAGE_KEYS.SESSION_UNLOCKED]: false
+        });
+        return true;
+    }
+    catch (error) {
+        console.error('[EigenVault] Storage Init Internal Error:', error);
+        throw error;
+    }
 }
 /**
  * Unlock vault with master password
@@ -55,7 +164,7 @@ export async function initializeVault(masterPassword) {
  */
 export async function unlockVault(masterPassword) {
     try {
-        const result = await chrome.storage.sync.get([
+        const result = await chrome.storage.local.get([
             STORAGE_KEYS.SALT,
             STORAGE_KEYS.ENCRYPTED_KEY,
             STORAGE_KEYS.MASTER_HASH,
@@ -74,7 +183,7 @@ export async function unlockVault(masterPassword) {
         const parsed = JSON.parse(keyData);
         const dataKey = await importKey(new Uint8Array(parsed.key));
         // Mark session as unlocked
-        await chrome.storage.sync.set({
+        await chrome.storage.local.set({
             [STORAGE_KEYS.SESSION_UNLOCKED]: true,
         });
         return { success: true, key: dataKey };
@@ -87,7 +196,7 @@ export async function unlockVault(masterPassword) {
  * Lock the vault (clears session)
  */
 export async function lockVault() {
-    await chrome.storage.sync.set({
+    await chrome.storage.local.set({
         [STORAGE_KEYS.SESSION_UNLOCKED]: false,
     });
 }
@@ -96,7 +205,7 @@ export async function lockVault() {
  */
 export async function isVaultUnlocked() {
     return new Promise((resolve) => {
-        chrome.storage.sync.get([STORAGE_KEYS.SESSION_UNLOCKED], (result) => {
+        chrome.storage.local.get([STORAGE_KEYS.SESSION_UNLOCKED], (result) => {
             resolve(result[STORAGE_KEYS.SESSION_UNLOCKED] === true);
         });
     });
@@ -105,7 +214,7 @@ export async function isVaultUnlocked() {
  * Get decrypted data encryption key if unlocked
  */
 export async function getDataKey() {
-    const result = await chrome.storage.sync.get([
+    const result = await chrome.storage.local.get([
         STORAGE_KEYS.SALT,
         STORAGE_KEYS.ENCRYPTED_KEY,
         STORAGE_KEYS.SESSION_UNLOCKED,
@@ -113,20 +222,13 @@ export async function getDataKey() {
     if (!result[STORAGE_KEYS.SESSION_UNLOCKED]) {
         return null;
     }
-    try {
-        // Key is cached in memory by background script after unlock
-        // This is a simplified version - full implementation would cache the key
-        return null;
-    }
-    catch {
-        return null;
-    }
+    return null; // Not implemented for direct call, key is cached in background
 }
 /**
  * Read and decrypt password entries
  */
 export async function readPasswordEntries(dataKey) {
-    const result = await chrome.storage.sync.get([STORAGE_KEYS.ENCRYPTED_DATA]);
+    const result = await chrome.storage.local.get([STORAGE_KEYS.ENCRYPTED_DATA]);
     const encryptedData = result[STORAGE_KEYS.ENCRYPTED_DATA];
     if (!encryptedData?.ciphertext?.length) {
         return [];
@@ -150,7 +252,7 @@ export async function writePasswordEntries(entries, dataKey) {
             lastModified: Date.now(),
         };
         const { ciphertext, iv } = await encrypt(JSON.stringify(data), dataKey);
-        await chrome.storage.sync.set({
+        await chrome.storage.local.set({
             [STORAGE_KEYS.ENCRYPTED_DATA]: {
                 ciphertext: Array.from(ciphertext),
                 iv: Array.from(iv),
@@ -220,7 +322,6 @@ export async function importFromCSV(csvContent, dataKey) {
     const existingMap = new Map(entries.map((e) => [`${e.url}||${e.username}`, e]));
     let imported = 0;
     let updated = 0;
-    // Parse CSV (simple parser, handles quoted fields)
     const parseCSVLine = (line) => {
         const result = [];
         let current = '';
@@ -256,7 +357,10 @@ export async function importFromCSV(csvContent, dataKey) {
             imported++;
         }
     }
-    await writePasswordEntries(entries, dataKey);
+    const success = await writePasswordEntries(entries, dataKey);
+    if (!success) {
+        throw new Error('Failed to save imported entries. Storage might be full.');
+    }
     return { imported, updated };
 }
 //# sourceMappingURL=storage.js.map

@@ -17,6 +17,7 @@
     "service_worker": "background/service-worker.js",
     "type": "module"
   },
+  "options_page": "dashboard/dashboard.html",
   "permissions": [
     "storage",
     "tabs",

@@ -85,7 +85,18 @@ To install, navigate to the `extension/` directory and follow the instructions i
 └── README.md           # You are here
 ```
 
-## 🔒 Security Architecture
+## 🚀 Upcoming Features (Roadmap)
+
+We are actively working on advanced security layers to make EigenVault the most secure sovereign password manager:
+
+- **2FA Authenticator (TOTP) [Beta]:** Support for Google Authenticator and Authy directly in the vault.
+- **Biometric Unlock [Testing]:** FaceID and Fingerprint support for Chrome/Safari using WebAuthn.
+- **Email/Mobile OTP:** Secure master password overrides via verified communication channels.
+- **Quantum-Resistant Sharding:** Split your master key across multiple devices.
+- **Auto-Sync:** Real-time synchronization between the browser extension and local CLI vault.
+
+## 🛠️ Security Architecture
+
 
 EigenVault follows industry best practices:
 1. **Key Derivation**: PBKDF2-HMAC-SHA256 with 600,000 iterations.

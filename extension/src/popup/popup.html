@@ -1,204 +1,225 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EigenVault</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&family=Oxanium:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div id="app">
-    <!-- Lock Screen -->
-    <div id="lock-screen" class="screen">
-      <img src="../../public/github-header-banner.png" alt="EigenVault" style="width: 100%; border-radius: 8px; margin-bottom: 20px;">
-      <div class="logo">
-        <div class="logo-icon">🔐</div>
-        <h1>EigenVault</h1>
-      </div>
 
-      <div id="unlock-form">
-        <p class="subtitle">Unlock your vault</p>
-
-        <div class="input-group">
-          <input
-            type="password"
-            id="master-password"
-            placeholder="Master Password"
-            autocomplete="off"
-          />
-          <button id="toggle-password" class="icon-btn" title="Show/Hide">
-            <span class="eye-icon">👁</span>
-          </button>
-        </div>
-
-        <button id="unlock-btn" class="primary-btn">
-          Unlock
-        </button>
-
-        <div id="biometric-section" class="hidden">
-          <div class="divider">
-            <span>or</span>
-          </div>
-          <button id="biometric-btn" class="secondary-btn">
-            <span class="bio-icon">👆</span>
-            Use Biometric
-          </button>
-        </div>
-
-        <p id="unlock-error" class="error-message hidden"></p>
-      </div>
-
-      <div id="setup-form" class="hidden">
-        <p class="subtitle">Create your master password</p>
-        <p class="hint">This password encrypts all your data. Make it strong!</p>
-
-        <div class="input-group">
-          <input
-            type="password"
-            id="setup-password"
-            placeholder="Master Password"
-            autocomplete="off"
-          />
-        </div>
-
-        <div class="input-group">
-          <input
-            type="password"
-            id="setup-password-confirm"
-            placeholder="Confirm Password"
-            autocomplete="off"
-          />
-        </div>
-
-        <div id="password-strength" class="strength-meter">
-          <div class="strength-bar"></div>
-          <span class="strength-text"></span>
-        </div>
-
-        <button id="setup-btn" class="primary-btn" disabled>
-          Create Vault
-        </button>
-
-        <p id="setup-error" class="error-message hidden"></p>
+  <!-- ── LOCK SCREEN ── -->
+  <div id="lock-screen" class="screen screen-full animate-in">
+    <div class="logo-wrap">
+      <div class="logo-ring"></div>
+      <div class="logo-svg-wrap">
+        <svg viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 4L8 14V34C8 48 18 60 32 66C46 60 56 48 56 34V14L32 4Z" fill="var(--bg-void)" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="32" cy="36" r="2" fill="currentColor"/>
+        </svg>
       </div>
     </div>
 
-    <!-- Main Screen -->
-    <div id="main-screen" class="screen hidden">
-      <header class="header">
-        <div class="logo-small">🔐 EigenVault</div>
-        <button id="lock-btn" class="icon-btn" title="Lock Vault">
-          🔒
-        </button>
-      </header>
+    <h1 class="brand-name">EigenVault</h1>
+    <p class="brand-sub">Sovereign Security</p>
+    
+    <div class="lock-divider"></div>
 
-      <!-- Quick Actions -->
-      <div class="quick-actions">
-        <button id="generate-btn" class="action-btn">
-          <span class="action-icon">✨</span>
-          Generate
-        </button>
-        <button id="add-btn" class="action-btn">
-          <span class="action-icon">➕</span>
-          Add New
-        </button>
-        <button id="dashboard-btn" class="action-btn">
-          <span class="action-icon">📊</span>
-          Dashboard
-        </button>
+    <div id="unlock-form" style="width: 100%;">
+      <div class="input-wrap">
+        <input class="ev-input" id="master-password" type="password" placeholder="Master passphrase..." autocomplete="off">
+        <button id="toggle-password" class="icon-btn" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%);">👁</button>
       </div>
 
-      <!-- Search -->
-      <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input
-          type="text"
-          id="search-input"
-          placeholder="Search passwords..."
-        />
-      </div>
-
-      <!-- Matching Credentials -->
-      <div id="matching-section" class="hidden">
-        <div class="section-header">
-          <span>📍 Credentials for this site</span>
-        </div>
-        <div id="matching-list" class="credential-list"></div>
-      </div>
-
-      <!-- Recent Entries -->
-      <div class="section-header">
-        <span>📋 Recent</span>
-        <button id="view-all-btn" class="text-btn">View All</button>
-      </div>
-      <div id="recent-list" class="credential-list"></div>
-
-      <!-- Generated Password Display -->
-      <div id="generated-section" class="hidden">
-        <div class="generated-box">
-          <div class="generated-header">
-            <span>Generated Password</span>
-            <button id="close-generated" class="icon-btn">✕</button>
-          </div>
-          <div class="password-display">
-            <code id="generated-password"></code>
-            <button id="copy-generated" class="icon-btn" title="Copy">📋</button>
-          </div>
-          <div class="strength-indicator">
-            <span class="strength-label">Strength:</span>
-            <span id="strength-value" class="strength-value">Strong</span>
-          </div>
-          <div class="generated-actions">
-            <button id="regenerate-btn" class="secondary-btn">
-              🔄 Regenerate
-            </button>
-            <button id="save-generated-btn" class="primary-btn">
-              💾 Save
-            </button>
+      <!-- Quick Generator (Lock Screen) -->
+      <div class="quick-gen-card">
+        <div class="gen-header">
+          <span>Quick Generator</span>
+          <div class="gen-slider-wrap">
+            <span class="gen-len-val" id="gen-length-val">16</span>
+            <input type="range" id="gen-length" class="gen-slider" min="8" max="32" value="16">
           </div>
         </div>
+        <div class="gen-display">
+          <code class="gen-code" id="quick-gen-pass">••••••••••••••••</code>
+          <button id="quick-copy-btn" class="icon-btn" title="Copy">📋</button>
+          <button id="quick-refresh-btn" class="icon-btn" title="Refresh">🔄</button>
+        </div>
+      </div>
+
+      <button id="unlock-btn" class="btn-primary">Authenticate</button>
+      
+      <div id="mfa-area" class="hidden" style="margin-top: 15px;">
+        <div class="input-wrap">
+          <input class="ev-input" id="mfa-code" type="text" placeholder="6-digit MFA code" maxlength="6">
+        </div>
+        <button id="verify-mfa-btn" class="btn-primary">Verify & Unlock</button>
+      </div>
+
+      <p id="unlock-error" class="error-msg hidden"></p>
+      
+      <div style="text-align: center; margin-top: 12px;">
+        <button id="forgot-password-link" class="icon-btn" style="font-size: 10px; text-transform: uppercase;">Forgot Passphrase?</button>
       </div>
     </div>
 
-    <!-- Add/Edit Modal -->
-    <div id="add-modal" class="modal hidden">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="modal-title">Add Password</h2>
-          <button id="close-modal" class="icon-btn">✕</button>
+    <!-- Reset Screen -->
+    <div id="reset-screen" class="hidden" style="width: 100%;">
+      <p class="brand-sub" style="text-align: center; margin-bottom: 15px;">Recovery Mode</p>
+      <div class="btn-group">
+        <button id="reset-with-recovery" class="btn-sm">Key</button>
+        <button id="reset-with-totp" class="btn-sm">Code</button>
+      </div>
+      <div id="reset-input-area" class="hidden" style="margin-top: 15px;">
+        <input class="ev-input" id="reset-code" type="text" placeholder="Enter Key/Code">
+        <button id="verify-reset-btn" class="btn-primary">Verify</button>
+      </div>
+      <div id="new-password-area" class="hidden" style="margin-top: 15px;">
+        <input class="ev-input" id="new-master-password" type="password" placeholder="New Passphrase">
+        <button id="confirm-reset-btn" class="btn-primary">Update</button>
+      </div>
+      <button id="back-to-unlock" class="icon-btn" style="margin-top: 15px; width: 100%; font-size: 9px;">BACK</button>
+    </div>
+  </div>
+
+  <!-- ── SETUP SCREEN ── -->
+  <div id="setup-screen" class="screen screen-full hidden animate-in">
+    <div class="logo-wrap">
+      <div class="logo-svg-wrap">
+        <svg viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 4L8 14V34C8 48 18 60 32 66C46 60 56 48 56 34V14L32 4Z" fill="var(--bg-void)" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+      </div>
+    </div>
+    <h1 class="brand-name">EigenVault</h1>
+    <p class="brand-sub" style="color: var(--accent);">CREATING MASTER PASSWORD</p>
+    <div class="lock-divider"></div>
+
+    <div style="width: 100%;">
+      <div class="input-wrap">
+        <input class="ev-input" id="setup-password" type="password" placeholder="Set New Passphrase">
+      </div>
+      <div class="input-wrap">
+        <input class="ev-input" id="setup-password-confirm" type="password" placeholder="Confirm Passphrase">
+      </div>
+
+      <div id="password-strength" class="strength-meter" data-strength="0">
+        <div class="strength-segment segment"></div>
+        <div class="strength-segment segment"></div>
+        <div class="strength-segment segment"></div>
+        <div class="strength-segment segment"></div>
+      </div>
+      <p class="brand-sub strength-text" style="margin-top: 4px; font-size: 8px;">ENCRYPTION STRENGTH</p>
+
+      <button id="setup-btn" class="btn-primary" disabled>Initialize Vault</button>
+      <p id="setup-error" class="error-msg hidden"></p>
+    </div>
+  </div>
+
+  <!-- ── APP SCREEN ── -->
+  <div id="app-screen" class="screen hidden">
+    <div class="app-header">
+      <div class="header-brand">
+        <div class="header-logo">
+          <svg viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M32 4L8 14V34C8 48 18 60 32 66C46 60 56 48 56 34V14L32 4Z" fill="var(--bg-void)" stroke="currentColor" stroke-width="2"/><circle cx="32" cy="36" r="2" fill="currentColor"/></svg>
+        </div>
+        <span class="header-title">EigenVault</span>
+      </div>
+      <div class="header-actions" style="display: flex; gap: 8px;">
+        <button id="theme-toggle" class="theme-toggle">🌓</button>
+        <button id="lock-btn" class="icon-btn" title="Lock">🔒</button>
+      </div>
+    </div>
+
+    <div class="tab-nav">
+      <button class="tab-btn active" id="tab-vault-btn">Vault</button>
+      <button class="tab-btn" id="tab-gen-btn">Gen</button>
+      <button class="tab-btn" id="tab-settings-btn">Setup</button>
+    </div>
+
+    <div class="tab-content">
+      <!-- Vault Tab -->
+      <div class="tab-pane active" id="tab-vault">
+        <div style="margin-bottom: 12px;">
+          <input class="ev-input" id="search-input" type="text" placeholder="Filter..." style="height: 34px; font-size: 12px;">
+        </div>
+        
+        <div id="matching-section" class="hidden">
+          <span class="settings-label">Autofill Suggestions</span>
+          <div id="matching-list" class="vault-list" style="margin-bottom: 15px;"></div>
         </div>
 
-        <form id="add-form">
-          <div class="form-group">
-            <label for="entry-url">Website URL</label>
-            <input type="url" id="entry-url" required placeholder="https://example.com" />
-          </div>
+        <span class="settings-label">Recent Entries</span>
+        <div id="recent-list" class="vault-list"></div>
 
-          <div class="form-group">
-            <label for="entry-username">Username</label>
-            <input type="text" id="entry-username" required placeholder="your@email.com" />
-          </div>
+        <div style="margin-top: 15px;">
+          <button id="dashboard-btn" class="btn-primary" style="height: 36px; font-size: 11px;">OPEN SYSTEM DASHBOARD</button>
+        </div>
+      </div>
 
-          <div class="form-group">
-            <label for="entry-password">Password</label>
-            <div class="password-input-group">
-              <input type="password" id="entry-password" required />
-              <button type="button" id="generate-inline" class="icon-btn">✨</button>
-              <button type="button" id="toggle-entry-password" class="icon-btn">👁</button>
+      <!-- Generator Tab -->
+      <div class="tab-pane" id="tab-gen">
+        <div class="quick-gen-card" style="margin-top: 0; background: var(--bg-surface);">
+          <div id="generated-password" style="background: var(--bg-input); padding: 16px; border-radius: 8px; font-family: var(--font-mono); color: var(--accent); text-align: center; border: 1px solid var(--border-normal); word-break: break-all; min-height: 60px; display: flex; align-items: center; justify-content: center; font-size: 14px;">
+            Tx7@Km3q$Z9p!
+          </div>
+          
+          <div class="btn-group" style="margin-top: 12px; display: flex; gap: 8px;">
+            <button id="regenerate-btn" class="btn-sm" style="flex: 1;">🔄 NEW</button>
+            <button id="copy-generated" class="btn-sm" style="flex: 1;">📋 COPY</button>
+          </div>
+          
+          <div class="lock-divider" style="margin: 15px 0;"></div>
+          
+          <div class="gen-header">
+            <span>Passphrase Length</span>
+            <span class="gen-len-val" id="app-gen-len-val">16</span>
+          </div>
+          <input type="range" id="app-gen-length" class="gen-slider" min="8" max="64" value="16" style="width: 100%; margin-bottom: 15px;">
+
+          <button id="save-generated-btn" class="btn-primary" style="margin-top: 5px;">SAVE TO VAULT</button>
+        </div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div class="tab-pane" id="tab-settings">
+        <div class="settings-section">
+          <span class="settings-label">Identity & Security</span>
+          <div class="settings-group">
+            <div class="settings-row" id="add-btn">
+              <div class="settings-info">
+                <span class="settings-title">Add Entry</span>
+              </div>
+              <span>➕</span>
+            </div>
+            <div class="settings-row" onclick="alert('Email setup coming soon')">
+              <div class="settings-info">
+                <span class="settings-title">Email Verification <span class="beta-badge">Beta</span></span>
+              </div>
+              <span>󰄾</span>
+            </div>
+            <div class="settings-row" onclick="alert('Authenticator setup coming soon')">
+              <div class="settings-info">
+                <span class="settings-title">Authenticator <span class="beta-badge">Testing</span></span>
+              </div>
+              <span>󰄾</span>
+            </div>
+            <div class="settings-row" id="view-all-btn">
+              <div class="settings-info">
+                <span class="settings-title">Advanced Settings</span>
+              </div>
+              <span>⚙️</span>
             </div>
           </div>
-
-          <div class="form-group">
-            <label for="entry-note">Note (optional)</label>
-            <textarea id="entry-note" rows="2" placeholder="Work account, personal, etc."></textarea>
-          </div>
-
-          <div class="modal-actions">
-            <button type="button" id="cancel-btn" class="secondary-btn">Cancel</button>
-            <button type="submit" class="primary-btn">Save Password</button>
-          </div>
-        </form>
+        </div>
       </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-item"><div class="status-dot"></div> ENCRYPTED</div>
+      <div class="status-item">v1.2.0</div>
     </div>
   </div>
 

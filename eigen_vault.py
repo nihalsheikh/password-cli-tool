@@ -40,6 +40,38 @@ KDF_ITERATIONS = 600000
 KDF_SALT_SIZE = 16
 GCM_NONCE_SIZE = 12
 
+import hmac
+import hashlib
+import time
+import base64
+import struct
+
+...
+
+def get_totp_code(secret):
+    """Minimal TOTP implementation (HMAC-SHA1)"""
+    # Base32 decode
+    secret = secret.upper()
+    missing_padding = len(secret) % 8
+    if missing_padding:
+        secret += '=' * (8 - missing_padding)
+    key = base64.b32decode(secret)
+    
+    # Time step
+    intervals = int(time.time() // 30)
+    msg = struct.pack(">Q", intervals)
+    
+    # HMAC-SHA1
+    hmac_hash = hmac.new(key, msg, hashlib.sha1).digest()
+    
+    # Dynamic Truncation
+    offset = hmac_hash[-1] & 0x0f
+    code = struct.unpack(">I", hmac_hash[offset:offset+4])[0] & 0x7fffffff
+    
+    return str(code % 1000000).zfill(6)
+
+...
+
 class SecureVault:
     """Handles encrypted storage of password entries."""
     def __init__(self, master_password: str):
@@ -50,11 +82,11 @@ class SecureVault:
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt,
-            iterations=KDF_ITERATIONS,
+            iterations=150000, # Aligned with extension
         )
         return kdf.derive(self.master_password.encode())
 
-    def save(self, entries: list[dict], file_path: Path = VAULT_FILE):
+    def save(self, entries: list[dict], mfa_settings: dict = None, file_path: Path = VAULT_FILE):
         if not HAS_CRYPTO:
             rprint("[bold red]Error:[/] 'cryptography' library is required for secure storage.")
             sys.exit(1)
@@ -64,15 +96,20 @@ class SecureVault:
         aesgcm = AESGCM(key)
         nonce = os.urandom(GCM_NONCE_SIZE)
 
-        data = json.dumps(entries).encode()
+        vault_data = {
+            "entries": entries,
+            "mfa": mfa_settings or {"totpEnabled": False, "otpEnabled": False}
+        }
+        
+        data = json.dumps(vault_data).encode()
         ciphertext = aesgcm.encrypt(nonce, data, None)
 
         with open(file_path, "wb") as f:
             f.write(salt + nonce + ciphertext)
 
-    def load(self, file_path: Path = VAULT_FILE) -> list[dict]:
+    def load(self, file_path: Path = VAULT_FILE) -> tuple[list[dict], dict]:
         if not file_path.exists():
-            return []
+            return [], {"totpEnabled": False, "otpEnabled": False}
 
         if not HAS_CRYPTO:
             rprint("[bold red]Error:[/] 'cryptography' library is required for secure storage.")
@@ -88,7 +125,13 @@ class SecureVault:
             key = self._derive_key(salt)
             aesgcm = AESGCM(key)
             decrypted_data = aesgcm.decrypt(nonce, ciphertext, None)
-            return json.loads(decrypted_data.decode())
+            parsed = json.loads(decrypted_data.decode())
+            
+            # Handle legacy format
+            if isinstance(parsed, list):
+                return parsed, {"totpEnabled": False, "otpEnabled": False}
+            
+            return parsed.get("entries", []), parsed.get("mfa", {"totpEnabled": False, "otpEnabled": False})
         except Exception:
             rprint("[bold red]Error:[/] Access denied. Incorrect master password.")
             sys.exit(1)
@@ -168,43 +211,69 @@ def main():
         master_pwd = getpass.getpass("Master Password: ")
         vault = SecureVault(master_pwd)
 
-    entries = vault.load()
+    entries, mfa_settings = vault.load()
+
+    # MFA Challenge
+    if mfa_settings.get("totpEnabled"):
+        code = input("MFA Code: ").strip()
+        expected = get_totp_code(mfa_settings["totpSecret"])
+        if code != expected:
+            rprint("[bold red]Error:[/] Invalid MFA code.")
+            sys.exit(1)
 
     if args.add:
-        name = input("Entry Name (e.g. Github): ").strip()
-        url = input("URL: ").strip()
-        user = input("Username: ").strip()
-        pwd = getpass.getpass("Password (leave blank to generate): ") or generate_password()
-        entries.append({"name": name, "url": url, "username": user, "password": pwd, "note": ""})
-        vault.save(entries)
-        rprint(f"[bold green]Success:[/] Entry for {name} saved.")
-    
-    elif args.search:
-        results = [e for e in entries if args.search.lower() in e['name'].lower()]
-        _display_results(results)
-    
+...
     elif args.list:
         _display_results(entries)
     
     else:
         # Interactive Menu
         while True:
-            rprint("\n[bold]1.[/] List  [bold]2.[/] Add  [bold]3.[/] Search  [bold]4.[/] Exit")
+            rprint("\n[bold]1.[/] List  [bold]2.[/] Add  [bold]3.[/] Search  [bold]4.[/] Settings  [bold]5.[/] Exit")
             choice = input("Select: ").strip()
-            if choice == "1": _display_results(vault.load())
+            if choice == "1": 
+                entries, _ = vault.load()
+                _display_results(entries)
             elif choice == "2": 
-                # Simplified add for menu
                 name = input("Name: ")
                 user = input("User: ")
-                pwd = generate_password()
-                entries = vault.load()
+                pwd = input("Password (blank to gen): ") or generate_password()
+                entries, mfa = vault.load()
                 entries.append({"name": name, "url": "", "username": user, "password": pwd, "note": ""})
-                vault.save(entries)
+                vault.save(entries, mfa)
                 rprint("[green]Saved.[/]")
             elif choice == "3":
                 q = input("Query: ")
-                _display_results([e for e in vault.load() if q.lower() in e['name'].lower()])
-            elif choice == "4": break
+                entries, _ = vault.load()
+                _display_results([e for e in entries if q.lower() in e['name'].lower()])
+            elif choice == "4":
+                # Settings Menu
+                rprint("\n[bold]Settings:[/]")
+                rprint("1. Setup TOTP MFA")
+                rprint("2. Disable MFA")
+                rprint("3. Generate Recovery Key")
+                s_choice = input("Select: ").strip()
+                
+                if s_choice == "1":
+                    # Simple Base32 secret generation
+                    secret = "".join(secrets.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567") for _ in range(16))
+                    rprint(f"\n[cyan]Add this secret to your Authenticator app:[/] [bold]{secret}[/]")
+                    code = input("Verify code: ").strip()
+                    if code == get_totp_code(secret):
+                        mfa_settings["totpEnabled"] = True
+                        mfa_settings["totpSecret"] = secret
+                        vault.save(entries, mfa_settings)
+                        rprint("[green]TOTP MFA Enabled.[/]")
+                    else:
+                        rprint("[red]Verification failed.[/]")
+                
+                elif s_choice == "2":
+                    mfa_settings["totpEnabled"] = False
+                    mfa_settings["otpEnabled"] = False
+                    vault.save(entries, mfa_settings)
+                    rprint("[yellow]MFA Disabled.[/]")
+
+            elif choice == "5": break
 
 if __name__ == "__main__":
     main()

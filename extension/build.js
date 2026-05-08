@@ -21,6 +21,7 @@ const FILE_MAPPINGS = [
   { from: 'dist/src/core/crypto.js', to: 'core/crypto.js' },
   { from: 'dist/src/core/storage.js', to: 'core/storage.js' },
   { from: 'dist/src/core/password-gen.js', to: 'core/password-gen.js' },
+  { from: 'dist/src/core/otp.js', to: 'core/otp.js' },
   { from: 'dist/src/core/webauthn.js', to: 'core/webauthn.js' },
   { from: 'dist/src/dashboard/dashboard.js', to: 'dashboard/dashboard.js' },
   { from: 'dist/src/popup/popup.js', to: 'popup/popup.js' },
