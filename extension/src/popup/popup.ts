@@ -2,7 +2,7 @@
  * Popup UI Controller for EigenVault - New Cyberpunk Design
  */
 
-import { generatePassword, isPasswordStrong, getPasswordStrengthScore } from '../core/password-gen.js';
+import { generatePassword, isPasswordStrong, getPasswordStrengthScore, isValidUrl, getNameFromUrl } from '../core/password-gen.js';
 
 // DOM Elements - Screens
 const lockScreen = document.getElementById('lock-screen')!;
@@ -63,9 +63,19 @@ const appGenLengthVal = document.getElementById('app-gen-len-val') as HTMLElemen
 
 // Quick Actions (Settings Tab)
 const addBtn = document.getElementById('add-btn') as HTMLElement;
+const addEntryQuickBtn = document.getElementById('add-entry-quick-btn') as HTMLButtonElement;
 const viewAllBtn = document.getElementById('view-all-btn') as HTMLElement;
 const lockBtn = document.getElementById('lock-btn') as HTMLButtonElement;
 const themeToggle = document.getElementById('theme-toggle') as HTMLButtonElement;
+
+// Quick Add Form
+const quickAddForm = document.getElementById('quick-add-form') as HTMLFormElement;
+const addNameInput = document.getElementById('add-name') as HTMLInputElement;
+const addUrlInput = document.getElementById('add-url') as HTMLInputElement;
+const addUsernameInput = document.getElementById('add-username') as HTMLInputElement;
+const addPasswordInput = document.getElementById('add-password') as HTMLInputElement;
+const addGenPassBtn = document.getElementById('add-gen-pass') as HTMLButtonElement;
+const addCancelBtn = document.getElementById('add-cancel-btn') as HTMLButtonElement;
 
 // Quick Generator (Lock Screen)
 const quickGenPass = document.getElementById('quick-gen-pass') as HTMLElement;
@@ -136,6 +146,7 @@ async function showMainScreen() {
   await loadMatchingCredentials();
   await loadRecentEntries();
   updateAppGen();
+  switchTab('vault'); // Default to vault tab
 }
 
 function updateQuickGen() {
@@ -221,6 +232,7 @@ function setupEventListeners() {
   // Vault
   searchInput.addEventListener('input', handleSearch);
   dashboardBtn.addEventListener('click', openDashboard);
+  addEntryQuickBtn.addEventListener('click', () => openQuickAdd());
 
   // App Generator
   appRegenerateBtn.addEventListener('click', updateAppGen);
@@ -233,10 +245,21 @@ function setupEventListeners() {
       setTimeout(() => appCopyGeneratedBtn.textContent = '📋 COPY', 1500);
     }
   });
-  appSaveGeneratedBtn.addEventListener('click', openDashboard);
+  appSaveGeneratedBtn.addEventListener('click', () => {
+    const pass = appGeneratedPasswordEl.textContent || '';
+    openQuickAdd(pass);
+  });
+
+  // Quick Add
+  addGenPassBtn.addEventListener('click', () => {
+    addPasswordInput.value = generatePassword({ length: 16 });
+    addPasswordInput.type = 'text';
+  });
+  addCancelBtn.addEventListener('click', () => switchTab('vault'));
+  quickAddForm.addEventListener('submit', handleQuickAddSubmit);
 
   // Settings
-  addBtn.addEventListener('click', openDashboard);
+  addBtn.addEventListener('click', () => openQuickAdd());
   viewAllBtn.addEventListener('click', openDashboard);
   lockBtn.addEventListener('click', lockVault);
 
@@ -325,10 +348,47 @@ async function handleResetConfirm() {
 
 function switchTab(name: string) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(`tab-${name}-btn`)?.classList.add('active');
+  const btn = document.getElementById(`tab-${name}-btn`);
+  if (btn) btn.classList.add('active');
   
   tabPanes.forEach(p => p.classList.remove('active'));
   document.getElementById(`tab-${name}`)?.classList.add('active');
+}
+
+async function openQuickAdd(prefillPassword?: string) {
+  switchTab('add');
+  quickAddForm.reset();
+  
+  if (prefillPassword) {
+    addPasswordInput.value = prefillPassword;
+    addPasswordInput.type = 'text';
+  }
+
+  // Pre-fill URL and Name from current tab
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab?.url && isValidUrl(tab.url)) {
+    addUrlInput.value = tab.url;
+    addNameInput.value = getNameFromUrl(tab.url);
+  }
+}
+
+async function handleQuickAddSubmit(e: Event) {
+  e.preventDefault();
+  const entry = {
+    name: addNameInput.value,
+    url: addUrlInput.value,
+    username: addUsernameInput.value,
+    password: addPasswordInput.value,
+    note: ''
+  };
+
+  const response = await sendMessage('ADD_ENTRY', { entry });
+  if (response.success) {
+    await loadRecentEntries();
+    switchTab('vault');
+  } else {
+    alert('Failed to add entry: ' + (response.error || 'Unknown error'));
+  }
 }
 
 async function loadMatchingCredentials() {
@@ -340,8 +400,13 @@ async function loadMatchingCredentials() {
 
   matchingList.innerHTML = response.matches.map((entry: any) => `
     <div class="vault-item" data-user="${entry.username}" data-pass="${entry.password}">
-      <div class="vault-item-name">${escapeHtml(entry.name || entry.url)}</div>
-      <div class="vault-item-user">${escapeHtml(entry.username)}</div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-key-round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+        <div style="flex: 1; overflow: hidden;">
+          <div class="vault-item-name">${escapeHtml(entry.name || entry.url)}</div>
+          <div class="vault-item-user">${escapeHtml(entry.username)}</div>
+        </div>
+      </div>
     </div>
   `).join('');
 
@@ -361,8 +426,13 @@ async function loadRecentEntries() {
   const recent = response.entries.slice(-5).reverse();
   recentList.innerHTML = recent.map((entry: any) => `
     <div class="vault-item" data-user="${entry.username}" data-pass="${entry.password}">
-      <div class="vault-item-name">${escapeHtml(entry.name || entry.url)}</div>
-      <div class="vault-item-user">${escapeHtml(entry.username)}</div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-history"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+        <div style="flex: 1; overflow: hidden;">
+          <div class="vault-item-name">${escapeHtml(entry.name || entry.url)}</div>
+          <div class="vault-item-user">${escapeHtml(entry.username)}</div>
+        </div>
+      </div>
     </div>
   `).join('');
 

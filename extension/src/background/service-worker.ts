@@ -260,7 +260,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             resetAutoLockTimer();
             const success = await updatePasswordEntry(
               message.index,
-              message.newPassword,
+              message.entry as PasswordEntry,
               key
             );
             sendResponse({ success });

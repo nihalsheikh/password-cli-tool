@@ -16,6 +16,7 @@ const addNewBtn = document.getElementById('add-new-btn');
 // Generator View
 const genPasswordEl = document.getElementById('gen-password');
 const genCopyBtn = document.getElementById('gen-copy');
+const genSaveBtn = document.getElementById('gen-save');
 const genRegenerateBtn = document.getElementById('gen-regenerate');
 const genLengthSlider = document.getElementById('gen-length');
 const lengthValue = document.getElementById('length-value');
@@ -96,6 +97,14 @@ function setupEventListeners() {
     // Generator
     genRegenerateBtn.addEventListener('click', updateGenerator);
     genCopyBtn.addEventListener('click', copyToClipboard);
+    genSaveBtn.addEventListener('click', () => {
+        const pass = genPasswordEl.textContent;
+        openEntryModal();
+        if (pass && pass !== '••••••••••••••••') {
+            entryPasswordInput.value = pass;
+            entryPasswordInput.type = 'text';
+        }
+    });
     genLengthSlider.addEventListener('input', () => {
         lengthValue.textContent = genLengthSlider.value;
         updateGenerator();
@@ -145,7 +154,9 @@ function renderEntries(entries) {
     <tr>
       <td>
         <div class="site-cell">
-          <div class="site-icon">🔐</div>
+          <div class="site-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shield"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.8 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+          </div>
           <div>
             <div class="site-name">${escapeHtml(entry.name || 'Account')}</div>
             <div class="site-url">${escapeHtml(entry.url)}</div>
@@ -155,10 +166,16 @@ function renderEntries(entries) {
       <td class="mono-cell">${escapeHtml(entry.username)}</td>
       <td class="mono-cell">${escapeHtml(entry.url)}</td>
       <td><span class="success-text" style="font-size: 10px; font-weight: 700;">ENCRYPTED</span></td>
-      <td style="text-align: right;">
-        <button class="icon-btn" title="Copy" onclick="window.copyEntry(${index})">📋</button>
-        <button class="icon-btn" title="Edit" onclick="window.editEntry(${index})">✏️</button>
-        <button class="icon-btn" title="Delete" onclick="window.deleteEntry(${index})">🗑️</button>
+      <td style="text-align: right; display: flex; gap: 4px; justify-content: flex-end;">
+        <button class="icon-btn" title="Copy" onclick="window.copyEntry(${index})">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+        </button>
+        <button class="icon-btn" title="Edit" onclick="window.editEntry(${index})">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+        </button>
+        <button class="icon-btn" title="Delete" onclick="window.deleteEntry(${index})">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+        </button>
       </td>
     </tr>
   `).join('');
@@ -213,8 +230,7 @@ async function handleFormSubmit(e) {
     const index = editIndexInput.value;
     let res;
     if (index) {
-        res = await sendMessage('UPDATE_ENTRY', { index: parseInt(index), newPassword: entry.password });
-        // Note: full entry update logic should be refined in SW
+        res = await sendMessage('UPDATE_ENTRY', { index: parseInt(index), entry });
     }
     else {
         res = await sendMessage('ADD_ENTRY', { entry });

@@ -243,13 +243,27 @@ export async function readPasswordEntries(dataKey) {
     }
 }
 /**
- * Write and encrypt password entries
+ * Write and encrypt password entries, preserving existing metadata/MFA settings
  */
 export async function writePasswordEntries(entries, dataKey) {
     try {
+        const result = await chrome.storage.local.get([STORAGE_KEYS.ENCRYPTED_DATA]);
+        const encryptedData = result[STORAGE_KEYS.ENCRYPTED_DATA];
+        let mfaSettings;
+        if (encryptedData?.ciphertext?.length) {
+            try {
+                const decrypted = await decrypt(new Uint8Array(encryptedData.ciphertext), new Uint8Array(encryptedData.iv), dataKey);
+                const oldData = JSON.parse(decrypted);
+                mfaSettings = oldData.mfaSettings;
+            }
+            catch (e) {
+                console.warn('[EigenVault] Could not recover old MFA settings during write', e);
+            }
+        }
         const data = {
             entries,
             lastModified: Date.now(),
+            mfaSettings
         };
         const { ciphertext, iv } = await encrypt(JSON.stringify(data), dataKey);
         await chrome.storage.local.set({
@@ -260,7 +274,8 @@ export async function writePasswordEntries(entries, dataKey) {
         });
         return true;
     }
-    catch {
+    catch (error) {
+        console.error('[EigenVault] Write failed:', error);
         return false;
     }
 }
@@ -273,13 +288,13 @@ export async function addPasswordEntry(entry, dataKey) {
     return writePasswordEntries(entries, dataKey);
 }
 /**
- * Update a password entry by index
+ * Update a password entry by index with full data
  */
-export async function updatePasswordEntry(index, newPassword, dataKey) {
+export async function updatePasswordEntry(index, updatedEntry, dataKey) {
     const entries = await readPasswordEntries(dataKey);
     if (index < 0 || index >= entries.length)
         return false;
-    entries[index].password = newPassword;
+    entries[index] = updatedEntry;
     return writePasswordEntries(entries, dataKey);
 }
 /**

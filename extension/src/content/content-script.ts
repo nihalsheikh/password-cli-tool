@@ -642,37 +642,41 @@ function showFillNotification(fieldCount: number) {
   notification.id = 'eigenvault-notification';
   notification.style.cssText = `
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: linear-gradient(135deg, #6366f1, #a855f7);
-    color: white;
-    padding: 16px 24px;
-    border-radius: 12px;
-    font-size: 14px;
+    bottom: 24px;
+    right: 24px;
+    background: rgba(15, 23, 42, 0.9);
+    color: #f8fafc;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+    font-size: 13px;
     font-weight: 600;
-    box-shadow: 0 10px 40px rgba(99, 102, 241, 0.4);
-    z-index: 9999999;
-    animation: evSlideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    z-index: 2147483647;
+    animation: evSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     display: flex;
     align-items: center;
     gap: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    pointer-events: none;
+    backdrop-filter: blur(8px);
+    border-left: 3px solid #6366f1;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   `;
 
   notification.innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-    </svg>
-    <span>Filled ${fieldCount} field(s)</span>
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shield-check"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+    <div style="display: flex; flex-direction: column;">
+      <span style="color: #6366f1; font-size: 10px; margin-bottom: -2px;">System Secure</span>
+      <span>Vault data deployed: ${fieldCount} field(s)</span>
+    </div>
   `;
   document.body.appendChild(notification);
 
   // Remove after 3 seconds
   setTimeout(() => {
-    notification.style.animation = 'evSlideOut 0.3s ease forwards';
-    setTimeout(() => notification.remove(), 300);
-  }, 3000);
+    notification.style.animation = 'evSlideOut 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards';
+    setTimeout(() => notification.remove(), 400);
+  }, 3500);
 }
 
 /**

@@ -361,16 +361,36 @@ export async function readPasswordEntries(
 }
 
 /**
- * Write and encrypt password entries
+ * Write and encrypt password entries, preserving existing metadata/MFA settings
  */
 export async function writePasswordEntries(
   entries: PasswordEntry[],
   dataKey: CryptoKey
 ): Promise<boolean> {
   try {
+    const result = await chrome.storage.local.get([STORAGE_KEYS.ENCRYPTED_DATA]);
+    const encryptedData = result[STORAGE_KEYS.ENCRYPTED_DATA];
+    
+    let mfaSettings: MFASettings | undefined;
+    
+    if (encryptedData?.ciphertext?.length) {
+      try {
+        const decrypted = await decrypt(
+          new Uint8Array(encryptedData.ciphertext),
+          new Uint8Array(encryptedData.iv),
+          dataKey
+        );
+        const oldData: EncryptedData = JSON.parse(decrypted);
+        mfaSettings = oldData.mfaSettings;
+      } catch (e) {
+        console.warn('[EigenVault] Could not recover old MFA settings during write', e);
+      }
+    }
+
     const data: EncryptedData = {
       entries,
       lastModified: Date.now(),
+      mfaSettings
     };
 
     const { ciphertext, iv } = await encrypt(JSON.stringify(data), dataKey);
@@ -383,7 +403,8 @@ export async function writePasswordEntries(
     });
 
     return true;
-  } catch {
+  } catch (error) {
+    console.error('[EigenVault] Write failed:', error);
     return false;
   }
 }
@@ -401,17 +422,17 @@ export async function addPasswordEntry(
 }
 
 /**
- * Update a password entry by index
+ * Update a password entry by index with full data
  */
 export async function updatePasswordEntry(
   index: number,
-  newPassword: string,
+  updatedEntry: PasswordEntry,
   dataKey: CryptoKey
 ): Promise<boolean> {
   const entries = await readPasswordEntries(dataKey);
   if (index < 0 || index >= entries.length) return false;
 
-  entries[index].password = newPassword;
+  entries[index] = updatedEntry;
   return writePasswordEntries(entries, dataKey);
 }
 
